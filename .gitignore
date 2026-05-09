@@ -1,0 +1,29 @@
+# Backend — Maven / Spring Boot
+OrchestraBackend/target/
+OrchestraBackend/.mvn/wrapper/maven-wrapper.jar
+OrchestraBackend/*.log
+OrchestraBackend/uploads/
+OrchestraBackend/src/main/resources/application-local.properties
+
+# Frontend — Node / Vite
+FrontEnd/node_modules/
+FrontEnd/dist/
+FrontEnd/.vite/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Claude Code local settings
+.claude/
+
+# Environment / secrets
+.env
+.env.*
+*.env
