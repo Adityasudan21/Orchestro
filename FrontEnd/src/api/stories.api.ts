@@ -11,4 +11,6 @@ export const storiesApi = {
     api.put<Story>(`/stories/${id}`, payload).then((r) => r.data),
   updateStatus: (id: number, payload: UpdateStatusPayload) =>
     api.patch<Story>(`/stories/${id}/status`, payload).then((r) => r.data),
+  assign: (id: number, assigneeId: number) =>
+    api.patch<Story>(`/stories/${id}/assignee`, { assigneeId }).then((r) => r.data),
 }

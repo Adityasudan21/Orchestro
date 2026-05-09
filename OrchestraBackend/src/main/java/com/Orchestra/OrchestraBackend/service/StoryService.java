@@ -1,10 +1,13 @@
 package com.Orchestra.OrchestraBackend.service;
 
+import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateStoryRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.response.StoryResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
+import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
 import com.Orchestra.OrchestraBackend.model.Project;
+import com.Orchestra.OrchestraBackend.model.Role;
 import com.Orchestra.OrchestraBackend.model.Story;
 import com.Orchestra.OrchestraBackend.model.User;
 import com.Orchestra.OrchestraBackend.repository.ProjectRepository;
@@ -79,6 +82,22 @@ public class StoryService {
         Story story = storyRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Story not found: " + id));
         story.setStatus(request.getStatus());
+        return StoryResponse.from(storyRepository.save(story));
+    }
+
+    public StoryResponse assignStory(Long storyId, AssignRequest request, String requesterUsername) {
+        User requester = userRepository.findByUsername(requesterUsername)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requesterUsername));
+        User assignee = userRepository.findById(request.getAssigneeId())
+            .orElseThrow(() -> new ResourceNotFoundException("Assignee not found: " + request.getAssigneeId()));
+
+        if (requester.getRole() == Role.MANAGER && assignee.getRole() == Role.ADMIN) {
+            throw new UnauthorizedException("Managers cannot assign stories to Admins");
+        }
+
+        Story story = storyRepository.findById(storyId)
+            .orElseThrow(() -> new ResourceNotFoundException("Story not found: " + storyId));
+        story.setAssignee(assignee);
         return StoryResponse.from(storyRepository.save(story));
     }
 }

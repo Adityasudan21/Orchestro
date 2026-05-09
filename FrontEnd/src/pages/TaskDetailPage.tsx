@@ -4,9 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tasksApi } from '../api/tasks.api'
 import { commentsApi } from '../api/comments.api'
 import { attachmentsApi } from '../api/attachments.api'
+import { usersApi } from '../api/users.api'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { TypeBadge } from '../components/common/TypeBadge'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
+import { useAuth } from '../context/AuthContext'
 import type { TicketStatus } from '../types'
 
 const STATUSES: TicketStatus[] = [
@@ -17,7 +19,9 @@ export function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
   const taskId = Number(id)
   const queryClient = useQueryClient()
+  const { user: me } = useAuth()
   const [comment, setComment] = useState('')
+  const canAssign = me?.role === 'ADMIN' || me?.role === 'MANAGER'
 
   const { data: task, isLoading } = useQuery({
     queryKey: ['task', taskId],
@@ -50,6 +54,17 @@ export function TaskDetailPage() {
   const uploadMutation = useMutation({
     mutationFn: (file: File) => attachmentsApi.uploadToTask(taskId, file),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attachments', 'task', taskId] }),
+  })
+
+  const { data: assignableUsers } = useQuery({
+    queryKey: ['users', 'assignable'],
+    queryFn: usersApi.getAssignable,
+    enabled: canAssign,
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: (assigneeId: number) => tasksApi.assign(taskId, assigneeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task', taskId] }),
   })
 
   if (isLoading) return <LoadingSpinner />
@@ -119,6 +134,25 @@ export function TaskDetailPage() {
           <span className="text-gray-400">Created</span>
           <span className="text-gray-700">{new Date(task.createdAt).toLocaleString()}</span>
         </div>
+
+        {canAssign && assignableUsers && (
+          <div className="mb-4">
+            <p className="text-xs font-medium text-gray-500 mb-1">Assign To</p>
+            <select
+              defaultValue={task.assignee?.id ?? ''}
+              onChange={(e) => e.target.value && assignMutation.mutate(Number(e.target.value))}
+              disabled={assignMutation.isPending}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Unassigned</option>
+              {assignableUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.username} ({u.role})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <p className="text-xs font-medium text-gray-500 mb-2">Change Status</p>

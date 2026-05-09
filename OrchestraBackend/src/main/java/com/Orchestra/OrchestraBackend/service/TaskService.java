@@ -1,9 +1,12 @@
 package com.Orchestra.OrchestraBackend.service;
 
+import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateTaskRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.response.TaskResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
+import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
+import com.Orchestra.OrchestraBackend.model.Role;
 import com.Orchestra.OrchestraBackend.model.Story;
 import com.Orchestra.OrchestraBackend.model.Task;
 import com.Orchestra.OrchestraBackend.model.User;
@@ -91,6 +94,22 @@ public class TaskService {
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
         task.setStatus(request.getStatus());
         // TODO: when status == ASSIGNED_TO_AI, publish to Kafka topic 'ai-ticket-queue'
+        return TaskResponse.from(taskRepository.save(task));
+    }
+
+    public TaskResponse assignTask(Long taskId, AssignRequest request, String requesterUsername) {
+        User requester = userRepository.findByUsername(requesterUsername)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requesterUsername));
+        User assignee = userRepository.findById(request.getAssigneeId())
+            .orElseThrow(() -> new ResourceNotFoundException("Assignee not found: " + request.getAssigneeId()));
+
+        if (requester.getRole() == Role.MANAGER && assignee.getRole() == Role.ADMIN) {
+            throw new UnauthorizedException("Managers cannot assign tickets to Admins");
+        }
+
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + taskId));
+        task.setAssignee(assignee);
         return TaskResponse.from(taskRepository.save(task));
     }
 }

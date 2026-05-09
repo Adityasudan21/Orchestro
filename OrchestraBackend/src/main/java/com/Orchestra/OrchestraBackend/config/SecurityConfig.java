@@ -30,6 +30,7 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/users/assignable").hasAnyRole("ADMIN", "MANAGER")
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )

@@ -1,5 +1,6 @@
 package com.Orchestra.OrchestraBackend.controller;
 
+import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateStoryRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.response.StoryResponse;
@@ -56,5 +57,15 @@ public class StoryController {
         @Valid @RequestBody UpdateStatusRequest request
     ) {
         return ResponseEntity.ok(storyService.updateStatus(id, request));
+    }
+
+    @PatchMapping("/api/stories/{id}/assignee")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<StoryResponse> assignStory(
+        @PathVariable Long id,
+        @Valid @RequestBody AssignRequest request,
+        Authentication auth
+    ) {
+        return ResponseEntity.ok(storyService.assignStory(id, request, auth.getName()));
     }
 }

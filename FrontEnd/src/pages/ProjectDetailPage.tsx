@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectsApi } from '../api/projects.api'
 import { storiesApi } from '../api/stories.api'
+import { usersApi } from '../api/users.api'
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
@@ -15,6 +16,8 @@ export function ProjectDetailPage() {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [assigneeId, setAssigneeId] = useState<number | undefined>()
+  const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   const { data: project, isLoading: projectLoading } = useQuery({
     queryKey: ['project', projectId],
@@ -26,18 +29,23 @@ export function ProjectDetailPage() {
     queryFn: () => storiesApi.getByProject(projectId),
   })
 
+  const { data: assignableUsers } = useQuery({
+    queryKey: ['users', 'assignable'],
+    queryFn: usersApi.getAssignable,
+    enabled: showForm && canCreate,
+  })
+
   const createMutation = useMutation({
-    mutationFn: (payload: { title: string; description: string }) =>
+    mutationFn: (payload: { title: string; description: string; assigneeId?: number }) =>
       storiesApi.create(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories', projectId] })
       setShowForm(false)
       setTitle('')
       setDescription('')
+      setAssigneeId(undefined)
     },
   })
-
-  const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   if (projectLoading) return <LoadingSpinner />
 
@@ -81,9 +89,24 @@ export function ProjectDetailPage() {
             rows={2}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none resize-none focus:ring-2 focus:ring-blue-500"
           />
+          {assignableUsers && (
+            <div className="mb-3">
+              <p className="text-xs font-medium text-gray-500 mb-1">Assignee</p>
+              <select
+                value={assigneeId ?? ''}
+                onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : undefined)}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Unassigned</option>
+                {assignableUsers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2">
             <button
-              onClick={() => createMutation.mutate({ title, description })}
+              onClick={() => createMutation.mutate({ title, description, assigneeId })}
               disabled={!title || createMutation.isPending}
               className="bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >

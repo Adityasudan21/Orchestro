@@ -12,4 +12,6 @@ export const tasksApi = {
     api.put<Task>(`/tasks/${id}`, payload).then((r) => r.data),
   updateStatus: (id: number, payload: UpdateStatusPayload) =>
     api.patch<Task>(`/tasks/${id}/status`, payload).then((r) => r.data),
+  assign: (id: number, assigneeId: number) =>
+    api.patch<Task>(`/tasks/${id}/assignee`, { assigneeId }).then((r) => r.data),
 }

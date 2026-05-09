@@ -1,5 +1,6 @@
 package com.Orchestra.OrchestraBackend.controller;
 
+import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateTaskRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.response.TaskResponse;
@@ -8,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,5 +60,15 @@ public class TaskController {
         @Valid @RequestBody UpdateStatusRequest request
     ) {
         return ResponseEntity.ok(taskService.updateStatus(id, request));
+    }
+
+    @PatchMapping("/api/tasks/{id}/assignee")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<TaskResponse> assignTask(
+        @PathVariable Long id,
+        @Valid @RequestBody AssignRequest request,
+        Authentication auth
+    ) {
+        return ResponseEntity.ok(taskService.assignTask(id, request, auth.getName()));
     }
 }

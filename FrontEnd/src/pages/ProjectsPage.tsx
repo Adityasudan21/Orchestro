@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { projectsApi } from '../api/projects.api'
+import { usersApi } from '../api/users.api'
 import { useAuth } from '../context/AuthContext'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 
@@ -11,10 +12,17 @@ export function ProjectsPage() {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [memberIds, setMemberIds] = useState<number[]>([])
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
+  })
+
+  const { data: assignableUsers } = useQuery({
+    queryKey: ['users', 'assignable'],
+    queryFn: usersApi.getAssignable,
+    enabled: showForm,
   })
 
   const createMutation = useMutation({
@@ -24,10 +32,15 @@ export function ProjectsPage() {
       setShowForm(false)
       setName('')
       setDescription('')
+      setMemberIds([])
     },
   })
 
   const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER'
+
+  function toggleMember(id: number) {
+    setMemberIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
 
   return (
     <div className="p-8">
@@ -60,16 +73,38 @@ export function ProjectsPage() {
             rows={2}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
+          {assignableUsers && assignableUsers.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-medium text-gray-500 mb-1.5">Members</p>
+              <div className="max-h-36 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {assignableUsers.map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={memberIds.includes(u.id)}
+                      onChange={() => toggleMember(u.id)}
+                      className="accent-blue-600"
+                    />
+                    <span className="text-sm text-gray-700">{u.username}</span>
+                    <span className="text-xs text-gray-400 ml-auto">{u.role}</span>
+                  </label>
+                ))}
+              </div>
+              {memberIds.length > 0 && (
+                <p className="text-xs text-gray-400 mt-1">{memberIds.length} member{memberIds.length !== 1 ? 's' : ''} selected</p>
+              )}
+            </div>
+          )}
           <div className="flex gap-2">
             <button
-              onClick={() => createMutation.mutate({ name, description })}
+              onClick={() => createMutation.mutate({ name, description, memberIds: memberIds.length ? memberIds : undefined })}
               disabled={!name || createMutation.isPending}
               className="bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               Create
             </button>
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => { setShowForm(false); setMemberIds([]) }}
               className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
             >
               Cancel

@@ -3,9 +3,11 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { storiesApi } from '../api/stories.api'
 import { tasksApi } from '../api/tasks.api'
+import { usersApi } from '../api/users.api'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { TypeBadge } from '../components/common/TypeBadge'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
+import { useAuth } from '../context/AuthContext'
 import type { TaskType } from '../types'
 
 const TASK_TYPES: TaskType[] = ['DEV', 'DOC', 'BUG']
@@ -14,10 +16,13 @@ export function StoryDetailPage() {
   const { id } = useParams<{ id: string }>()
   const storyId = Number(id)
   const queryClient = useQueryClient()
+  const { user: me } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [type, setType] = useState<TaskType>('DEV')
   const [description, setDescription] = useState('')
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<number | undefined>()
+  const canAssign = me?.role === 'ADMIN' || me?.role === 'MANAGER'
 
   const { data: story, isLoading: storyLoading } = useQuery({
     queryKey: ['story', storyId],
@@ -29,14 +34,26 @@ export function StoryDetailPage() {
     queryFn: () => tasksApi.getByStory(storyId),
   })
 
+  const { data: assignableUsers } = useQuery({
+    queryKey: ['users', 'assignable'],
+    queryFn: usersApi.getAssignable,
+    enabled: canAssign,
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: (assigneeId: number) => storiesApi.assign(storyId, assigneeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['story', storyId] }),
+  })
+
   const createMutation = useMutation({
-    mutationFn: (payload: { title: string; type: TaskType; description: string }) =>
+    mutationFn: (payload: { title: string; type: TaskType; description: string; assigneeId?: number }) =>
       tasksApi.create(storyId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', storyId] })
       setShowForm(false)
       setTitle('')
       setDescription('')
+      setNewTaskAssigneeId(undefined)
     },
   })
 
@@ -72,9 +89,29 @@ export function StoryDetailPage() {
         <p className="text-sm text-gray-500 mb-2">{story.description}</p>
       )}
 
-      {story?.assignee && (
-        <p className="text-xs text-gray-400 mb-6">Assignee: {story.assignee.username}</p>
-      )}
+      <div className="flex items-center gap-4 mb-6">
+        {story?.assignee && (
+          <p className="text-xs text-gray-400">Assignee: {story.assignee.username}</p>
+        )}
+        {canAssign && assignableUsers && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Assign to:</span>
+            <select
+              defaultValue={story?.assignee?.id ?? ''}
+              onChange={(e) => e.target.value && assignMutation.mutate(Number(e.target.value))}
+              disabled={assignMutation.isPending}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Unassigned</option>
+              {assignableUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.username} ({u.role})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
       {showForm && (
         <div className="mb-6 bg-white border border-gray-200 rounded-xl p-5">
@@ -108,9 +145,24 @@ export function StoryDetailPage() {
             rows={2}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none resize-none focus:ring-2 focus:ring-blue-500"
           />
+          {canAssign && assignableUsers && (
+            <div className="mb-3">
+              <p className="text-xs font-medium text-gray-500 mb-1">Assignee</p>
+              <select
+                value={newTaskAssigneeId ?? ''}
+                onChange={(e) => setNewTaskAssigneeId(e.target.value ? Number(e.target.value) : undefined)}
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Unassigned</option>
+                {assignableUsers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2">
             <button
-              onClick={() => createMutation.mutate({ title, type, description })}
+              onClick={() => createMutation.mutate({ title, type, description, assigneeId: newTaskAssigneeId })}
               disabled={!title || createMutation.isPending}
               className="bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
