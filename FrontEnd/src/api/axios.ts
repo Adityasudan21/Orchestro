@@ -10,6 +10,11 @@ export function setCredentials(username: string, password: string) {
   api.defaults.headers.common['Authorization'] = `Basic ${token}`
 }
 
+// Restores a pre-encoded base64 token (e.g. from sessionStorage) without re-encoding.
+export function restoreCredentials(base64Token: string) {
+  api.defaults.headers.common['Authorization'] = `Basic ${base64Token}`
+}
+
 export function clearCredentials() {
   delete api.defaults.headers.common['Authorization']
 }

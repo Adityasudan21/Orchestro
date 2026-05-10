@@ -2,6 +2,7 @@ package com.Orchestra.OrchestraBackend.config;
 
 import com.Orchestra.OrchestraBackend.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.web.server.servlet.CookieSameSiteSupplier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -46,5 +47,12 @@ public class SecurityConfig {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder);
         return provider;
+    }
+
+    // Enforce SameSite=Strict on all cookies — mitigates CSRF for any cookie-based state.
+    // The app is stateless (Basic Auth), but this covers any cookies Tomcat may emit.
+    @Bean
+    public CookieSameSiteSupplier cookieSameSiteSupplier() {
+        return CookieSameSiteSupplier.ofStrict();
     }
 }

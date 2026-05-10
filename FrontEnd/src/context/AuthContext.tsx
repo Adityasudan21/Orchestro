@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import { setCredentials, clearCredentials } from '../api/axios'
+import { setCredentials, clearCredentials, restoreCredentials } from '../api/axios'
 import type { User } from '../types'
 
 interface AuthState {
@@ -14,6 +14,8 @@ const AuthContext = createContext<AuthState | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     const stored = sessionStorage.getItem('orchestro_user')
+    const creds = sessionStorage.getItem('orchestro_creds')
+    if (stored && creds) restoreCredentials(creds)
     return stored ? (JSON.parse(stored) as User) : null
   })
 
