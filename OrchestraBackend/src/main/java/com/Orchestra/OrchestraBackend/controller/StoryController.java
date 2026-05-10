@@ -4,6 +4,7 @@ import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateStoryRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.response.StoryResponse;
+import com.Orchestra.OrchestraBackend.dto.response.TaskResponse;
 import com.Orchestra.OrchestraBackend.service.StoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,10 @@ public class StoryController {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(storyService.createStory(projectId, request, auth.getName()));
     }
-
+    @GetMapping("/api/stories/my")
+    public ResponseEntity<List<StoryResponse>> getMyTasks(Authentication auth) {
+        return ResponseEntity.ok(storyService.getMyAssignedStories(auth.getName()));
+    }
     @GetMapping("/api/stories/{id}")
     public ResponseEntity<StoryResponse> getStory(@PathVariable Long id) {
         return ResponseEntity.ok(storyService.getStory(id));

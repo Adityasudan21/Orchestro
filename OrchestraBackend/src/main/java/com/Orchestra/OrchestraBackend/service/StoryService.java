@@ -4,6 +4,7 @@ import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateStoryRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.response.StoryResponse;
+import com.Orchestra.OrchestraBackend.dto.response.TaskResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
 import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
 import com.Orchestra.OrchestraBackend.model.Project;
@@ -41,7 +42,14 @@ public class StoryService {
         return StoryResponse.from(storyRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Story not found: " + id)));
     }
-
+    @Transactional(readOnly = true)
+    public List<StoryResponse> getMyAssignedStories(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        return storyRepository.findByAssignee(user).stream()
+                .map(StoryResponse::from)
+                .collect(Collectors.toList());
+    }
     public StoryResponse createStory(Long projectId, CreateStoryRequest request, String reporterUsername) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResourceNotFoundException("Project not found: " + projectId));

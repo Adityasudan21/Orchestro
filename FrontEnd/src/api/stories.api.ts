@@ -2,6 +2,7 @@ import api from './axios'
 import type { Story, CreateStoryPayload, UpdateStatusPayload } from '../types'
 
 export const storiesApi = {
+  getMy: () => api.get<Story[]>('/stories/my').then((r) => r.data),
   getByProject: (projectId: number) =>
     api.get<Story[]>(`/projects/${projectId}/stories`).then((r) => r.data),
   getById: (id: number) => api.get<Story>(`/stories/${id}`).then((r) => r.data),
