@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { ChangePasswordDialog } from '../common/ChangePasswordDialog'
@@ -16,6 +16,17 @@ export function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [showChangePassword, setShowChangePassword] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function openDropdown() {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    setDropdownOpen(true)
+  }
+
+  function scheduleClose() {
+    hideTimer.current = setTimeout(() => setDropdownOpen(false), 300)
+  }
 
   function handleSignOut() {
     logout()
@@ -66,10 +77,13 @@ export function Sidebar() {
             </NavLink>
           ))}
       </nav>
-      {/* User section — hover to reveal Sign out */}
-      <div className="relative group border-t border-slate-700/70">
+      {/* User section — hover to reveal dropdown */}
+      <div
+        className="relative border-t border-slate-700/70"
+        onMouseEnter={openDropdown}
+        onMouseLeave={scheduleClose}
+      >
         <div className="px-5 py-4 flex items-center gap-3 cursor-pointer select-none">
-          {/* Avatar initial */}
           <div className="w-7 h-7 rounded-full bg-slate-600 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
             {user?.username?.[0]?.toUpperCase()}
           </div>
@@ -77,16 +91,21 @@ export function Sidebar() {
             <div className="font-medium text-gray-200 truncate">{user?.username}</div>
             <div className="truncate">{user?.role}</div>
           </div>
-          {/* Chevron hint */}
-          <svg className="ml-auto w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className={`ml-auto w-3.5 h-3.5 transition-colors flex-shrink-0 ${dropdownOpen ? 'text-slate-300' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
           </svg>
         </div>
 
-        {/* Dropdown — visible on group hover */}
-        <div className="absolute bottom-full left-2 right-2 mb-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 origin-bottom pointer-events-none group-hover:pointer-events-auto z-50">
+        {/* Dropdown */}
+        <div
+          onMouseEnter={openDropdown}
+          onMouseLeave={scheduleClose}
+          className={`absolute bottom-full left-2 right-2 mb-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden transition-all duration-150 origin-bottom z-50 ${
+            dropdownOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
+          }`}
+        >
           <button
-            onClick={() => setShowChangePassword(true)}
+            onClick={() => { setShowChangePassword(true); setDropdownOpen(false) }}
             className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-slate-700 hover:text-white transition-colors text-left"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
