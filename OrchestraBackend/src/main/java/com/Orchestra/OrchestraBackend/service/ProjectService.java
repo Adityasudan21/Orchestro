@@ -59,10 +59,17 @@ public class ProjectService {
             );
         }
 
+        User assignee = null;
+        if (request.getAssigneeId() != null) {
+            assignee = userRepository.findById(request.getAssigneeId()).orElse(null);
+        }
+
         Project project = Project.builder()
             .name(request.getName())
             .description(request.getDescription())
             .createdBy(creator)
+            .reporter(creator)
+            .assignee(assignee)
             .members(members)
             .build();
 

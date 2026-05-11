@@ -82,6 +82,7 @@ export interface Attachment {
 export interface CreateProjectPayload {
   name: string
   description?: string
+  assigneeId?: number
   memberIds?: number[]
 }
 

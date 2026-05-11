@@ -10,5 +10,6 @@ public class CreateProjectRequest {
     @NotBlank
     private String name;
     private String description;
+    private Long assigneeId;
     private Set<Long> memberIds;
 }

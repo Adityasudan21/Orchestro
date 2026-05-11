@@ -190,17 +190,12 @@ export function ProjectDetailPage() {
           />
           {assignableUsers && (
             <div className="mb-3">
-              <p className="text-xs font-medium text-gray-500 mb-1">Assignee</p>
-              <select
-                value={assigneeId ?? ''}
-                onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : undefined)}
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Unassigned</option>
-                {assignableUsers.map((u) => (
-                  <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
-                ))}
-              </select>
+              <p className="text-xs font-medium text-gray-500 mb-1.5">Assignee</p>
+              <AssigneeSelect
+                value={assigneeId ?? null}
+                options={assignableUsers.map((u) => ({ id: u.id, username: u.username, role: u.role }))}
+                onChange={(id) => setAssigneeId(id)}
+              />
             </div>
           )}
           <div className="flex gap-2">
