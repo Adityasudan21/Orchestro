@@ -1,11 +1,14 @@
 package com.Orchestra.OrchestraBackend.service;
 
+import com.Orchestra.OrchestraBackend.dto.request.ChangePasswordRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateRoleRequest;
 import com.Orchestra.OrchestraBackend.dto.response.UserResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
+import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
 import com.Orchestra.OrchestraBackend.model.User;
 import com.Orchestra.OrchestraBackend.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,17 @@ public class UserService {
     private final TaskRepository taskRepository;
     private final CommentRepository commentRepository;
     private final AttachmentRepository attachmentRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public void changePassword(String username, ChangePasswordRequest request) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new UnauthorizedException("Current password is incorrect");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
 
     public UserResponse updateRole(Long userId, UpdateRoleRequest request) {
         User user = userRepository.findById(userId)

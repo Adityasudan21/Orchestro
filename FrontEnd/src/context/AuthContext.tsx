@@ -8,6 +8,7 @@ interface AuthState {
   isAuthenticated: boolean
   login: (username: string, password: string, user: User) => void
   logout: () => void
+  updateCredentials: (newPassword: string) => void
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -40,8 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear()
   }, [queryClient])
 
+  const updateCredentials = useCallback((newPassword: string) => {
+    const username = JSON.parse(sessionStorage.getItem('orchestro_user') || '{}')?.username
+    if (!username) return
+    setCredentials(username, newPassword)
+    sessionStorage.setItem('orchestro_creds', btoa(`${username}:${newPassword}`))
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, login, logout, updateCredentials }}>
       {children}
     </AuthContext.Provider>
   )

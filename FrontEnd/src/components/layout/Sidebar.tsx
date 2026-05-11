@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { ChangePasswordDialog } from '../common/ChangePasswordDialog'
 import clsx from 'clsx'
 
 const navItems = [
@@ -13,6 +15,7 @@ const adminItems = [{ to: '/admin', label: 'Users' }]
 export function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
   function handleSignOut() {
     logout()
@@ -83,6 +86,16 @@ export function Sidebar() {
         {/* Dropdown — visible on group hover */}
         <div className="absolute bottom-full left-2 right-2 mb-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 origin-bottom pointer-events-none group-hover:pointer-events-auto z-50">
           <button
+            onClick={() => setShowChangePassword(true)}
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-slate-700 hover:text-white transition-colors text-left"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            Change Password
+          </button>
+          <div className="border-t border-slate-700/60" />
+          <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-slate-700 hover:text-white transition-colors text-left"
           >
@@ -93,6 +106,8 @@ export function Sidebar() {
           </button>
         </div>
       </div>
+
+      <ChangePasswordDialog open={showChangePassword} onClose={() => setShowChangePassword(false)} />
     </aside>
   )
 }

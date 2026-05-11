@@ -1,5 +1,6 @@
 package com.Orchestra.OrchestraBackend.controller;
 
+import com.Orchestra.OrchestraBackend.dto.request.ChangePasswordRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateRoleRequest;
 import com.Orchestra.OrchestraBackend.dto.response.UserResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
@@ -47,6 +48,15 @@ public class UserController {
             ? userRepository.findAll()
             : userRepository.findByRoleIn(List.of(Role.MANAGER, Role.DEVELOPER));
         return ResponseEntity.ok(users.stream().map(UserResponse::from).collect(Collectors.toList()));
+    }
+
+    @PostMapping("/me/password")
+    public ResponseEntity<Void> changePassword(
+        @Valid @RequestBody ChangePasswordRequest request,
+        Authentication auth
+    ) {
+        userService.changePassword(auth.getName(), request);
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/role")

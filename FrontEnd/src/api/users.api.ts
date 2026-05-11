@@ -6,4 +6,6 @@ export const usersApi = {
   updateRole: (id: number, role: Role) =>
     api.patch<User>(`/users/${id}/role`, { role }).then((r) => r.data),
   deleteUser: (id: number) => api.delete(`/users/${id}`),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post('/users/me/password', { currentPassword, newPassword }).then(() => {}),
 }
