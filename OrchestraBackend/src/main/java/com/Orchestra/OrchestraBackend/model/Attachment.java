@@ -27,6 +27,10 @@ public class Attachment {
     @JoinColumn(name = "story_id")
     private Story story;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
     @Column(name = "file_name", nullable = false)
     private String fileName;
 

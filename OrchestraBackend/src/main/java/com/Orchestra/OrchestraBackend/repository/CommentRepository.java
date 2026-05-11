@@ -9,5 +9,6 @@ import java.util.List;
 public interface CommentRepository extends JpaRepository<Comment, Long> {
     List<Comment> findByTaskIdOrderByCreatedAtAsc(Long taskId);
     List<Comment> findByStoryIdOrderByCreatedAtAsc(Long storyId);
+    List<Comment> findByProjectIdOrderByCreatedAtAsc(Long projectId);
     void deleteByUser(User user);
 }

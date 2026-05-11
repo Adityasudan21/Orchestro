@@ -33,6 +33,21 @@ public class CommentController {
             .body(commentService.addTaskComment(taskId, request, auth.getName()));
     }
 
+    @GetMapping("/api/projects/{projectId}/comments")
+    public ResponseEntity<List<CommentResponse>> getProjectComments(@PathVariable Long projectId) {
+        return ResponseEntity.ok(commentService.getProjectComments(projectId));
+    }
+
+    @PostMapping("/api/projects/{projectId}/comments")
+    public ResponseEntity<CommentResponse> addProjectComment(
+        @PathVariable Long projectId,
+        @Valid @RequestBody CreateCommentRequest request,
+        Authentication auth
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(commentService.addProjectComment(projectId, request, auth.getName()));
+    }
+
     @GetMapping("/api/stories/{storyId}/comments")
     public ResponseEntity<List<CommentResponse>> getStoryComments(@PathVariable Long storyId) {
         return ResponseEntity.ok(commentService.getStoryComments(storyId));

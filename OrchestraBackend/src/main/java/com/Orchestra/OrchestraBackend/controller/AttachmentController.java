@@ -23,6 +23,21 @@ public class AttachmentController {
 
     private final AttachmentService attachmentService;
 
+    @GetMapping("/api/projects/{projectId}/attachments")
+    public ResponseEntity<List<AttachmentResponse>> getProjectAttachments(@PathVariable Long projectId) {
+        return ResponseEntity.ok(attachmentService.getProjectAttachments(projectId));
+    }
+
+    @PostMapping("/api/projects/{projectId}/attachments")
+    public ResponseEntity<AttachmentResponse> uploadToProject(
+        @PathVariable Long projectId,
+        @RequestParam("file") MultipartFile file,
+        Authentication auth
+    ) throws IOException {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(attachmentService.uploadToProject(projectId, file, auth.getName()));
+    }
+
     @GetMapping("/api/tasks/{taskId}/attachments")
     public ResponseEntity<List<AttachmentResponse>> getTaskAttachments(@PathVariable Long taskId) {
         return ResponseEntity.ok(attachmentService.getTaskAttachments(taskId));

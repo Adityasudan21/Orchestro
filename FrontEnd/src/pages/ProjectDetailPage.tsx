@@ -3,11 +3,17 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectsApi } from '../api/projects.api'
 import { storiesApi } from '../api/stories.api'
+import { commentsApi } from '../api/comments.api'
+import { attachmentsApi } from '../api/attachments.api'
 import { usersApi } from '../api/users.api'
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { AssigneeSelect } from '../components/common/AssigneeSelect'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
+
+function initials(name?: string | null) {
+  return (name?.[0] ?? '?').toUpperCase()
+}
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +27,7 @@ export function ProjectDetailPage() {
   const [editingMeta, setEditingMeta] = useState(false)
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
+  const [comment, setComment] = useState('')
   const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   const { data: project, isLoading: projectLoading } = useQuery({
@@ -37,6 +44,29 @@ export function ProjectDetailPage() {
     queryKey: ['users', 'assignable'],
     queryFn: usersApi.getAssignable,
     enabled: canCreate,
+  })
+
+  const { data: comments } = useQuery({
+    queryKey: ['comments', 'project', projectId],
+    queryFn: () => commentsApi.getByProject(projectId),
+  })
+
+  const { data: attachments } = useQuery({
+    queryKey: ['attachments', 'project', projectId],
+    queryFn: () => attachmentsApi.getByProject(projectId),
+  })
+
+  const commentMutation = useMutation({
+    mutationFn: (content: string) => commentsApi.addToProject(projectId, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', 'project', projectId] })
+      setComment('')
+    },
+  })
+
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => attachmentsApi.uploadToProject(projectId, file),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attachments', 'project', projectId] }),
   })
 
   const assignMutation = useMutation({
@@ -234,6 +264,72 @@ export function ProjectDetailPage() {
         {stories?.length === 0 && !storiesLoading && (
           <div className="text-center py-12 text-gray-400">No stories in this project yet.</div>
         )}
+      </div>
+
+      {/* Activity */}
+      <div className="mt-10">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Activity</h2>
+
+        <div className="space-y-3 max-h-64 overflow-y-auto pr-1 mb-5">
+          {comments?.map((c) => (
+            <div key={c.id} className="flex gap-2.5 py-2">
+              <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                {initials(c.user.username)}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-semibold text-gray-900">{c.user.username}</span>
+                  <span className="text-[11px] text-gray-400">{new Date(c.createdAt).toLocaleString()}</span>
+                </div>
+                <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+              </div>
+            </div>
+          ))}
+          {comments?.length === 0 && <p className="text-sm text-gray-400 italic">No comments yet.</p>}
+        </div>
+
+        {/* New comment */}
+        <div className="flex gap-2.5 items-start mb-8">
+          <div className="w-7 h-7 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+            {initials(user?.username)}
+          </div>
+          <div className="flex-1 border border-gray-200 rounded-xl bg-white p-3 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition">
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Leave a comment…"
+              rows={2}
+              className="w-full border-0 outline-none resize-none text-sm placeholder-gray-400 bg-transparent"
+            />
+            <div className="flex justify-end pt-2 border-t border-gray-100">
+              <button
+                onClick={() => comment && commentMutation.mutate(comment)}
+                disabled={!comment || commentMutation.isPending}
+                className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-md transition-colors"
+              >
+                Comment
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Attachments */}
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Attachments</h2>
+        <div className="space-y-1 mb-3">
+          {attachments?.map((a) => (
+            <div key={a.id} className="flex items-center justify-between py-2 text-xs text-gray-700 border-b border-dashed border-gray-200 last:border-b-0">
+              <span className="truncate">📎 {a.fileName}</span>
+              <a href={attachmentsApi.downloadUrl(a.id)} download className="text-blue-600 hover:underline text-[11px] flex-shrink-0 ml-2">
+                Download
+              </a>
+            </div>
+          ))}
+          {attachments?.length === 0 && <p className="text-xs text-gray-400 italic">No attachments yet.</p>}
+        </div>
+        <label className="cursor-pointer text-blue-600 hover:underline text-xs font-medium">
+          + Upload file
+          <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f) }} />
+        </label>
       </div>
     </div>
   )

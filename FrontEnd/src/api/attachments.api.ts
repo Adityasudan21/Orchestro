@@ -24,5 +24,16 @@ export const attachmentsApi = {
       })
       .then((r) => r.data)
   },
+  getByProject: (projectId: number) =>
+    api.get<Attachment[]>(`/projects/${projectId}/attachments`).then((r) => r.data),
+  uploadToProject: (projectId: number, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api
+      .post<Attachment>(`/projects/${projectId}/attachments`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data)
+  },
   downloadUrl: (id: number) => `/api/attachments/${id}/download`,
 }

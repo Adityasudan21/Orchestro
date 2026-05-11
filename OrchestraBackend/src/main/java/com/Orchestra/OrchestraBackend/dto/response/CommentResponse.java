@@ -12,6 +12,7 @@ public class CommentResponse {
     private Long id;
     private Long taskId;
     private Long storyId;
+    private Long projectId;
     private UserResponse user;
     private String content;
     private LocalDateTime createdAt;
@@ -21,6 +22,7 @@ public class CommentResponse {
             .id(comment.getId())
             .taskId(comment.getTask() != null ? comment.getTask().getId() : null)
             .storyId(comment.getStory() != null ? comment.getStory().getId() : null)
+            .projectId(comment.getProject() != null ? comment.getProject().getId() : null)
             .user(UserResponse.from(comment.getUser()))
             .content(comment.getContent())
             .createdAt(comment.getCreatedAt())
