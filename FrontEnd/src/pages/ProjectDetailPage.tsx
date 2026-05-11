@@ -17,6 +17,9 @@ export function ProjectDetailPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [assigneeId, setAssigneeId] = useState<number | undefined>()
+  const [editingMeta, setEditingMeta] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDesc, setEditDesc] = useState('')
   const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   const { data: project, isLoading: projectLoading } = useQuery({
@@ -34,6 +37,20 @@ export function ProjectDetailPage() {
     queryFn: usersApi.getAssignable,
     enabled: showForm && canCreate,
   })
+
+  const updateMetaMutation = useMutation({
+    mutationFn: () => projectsApi.update(projectId, { name: editName, description: editDesc }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+      setEditingMeta(false)
+    },
+  })
+
+  function startEditing() {
+    setEditName(project!.name)
+    setEditDesc(project!.description ?? '')
+    setEditingMeta(true)
+  }
 
   const createMutation = useMutation({
     mutationFn: (payload: { title: string; description: string; assigneeId?: number }) =>
@@ -56,16 +73,53 @@ export function ProjectDetailPage() {
         {' › '}
       </div>
       <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{project?.name}</h1>
-          {project?.description && (
-            <p className="text-sm text-gray-500 mt-1">{project.description}</p>
-          )}
-        </div>
+        {editingMeta ? (
+          <div className="flex-1 mr-4">
+            <input
+              autoFocus
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="w-full text-xl font-bold text-gray-900 border border-gray-300 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <textarea
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              placeholder="Description (optional)"
+              rows={3}
+              className="w-full text-sm text-gray-700 border border-gray-300 rounded-lg px-3 py-2 mb-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => updateMetaMutation.mutate()}
+                disabled={!editName || updateMetaMutation.isPending}
+                className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-md transition-colors"
+              >
+                {updateMetaMutation.isPending ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={() => setEditingMeta(false)} className="text-xs text-gray-500 px-3 py-1.5 hover:text-gray-700">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="group relative flex-1 mr-4">
+            <h1 className="text-2xl font-bold text-gray-900">{project?.name}</h1>
+            {project?.description && (
+              <p className="text-sm text-gray-500 mt-1">{project.description}</p>
+            )}
+            <button
+              onClick={startEditing}
+              title="Edit name & description"
+              className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          </div>
+        )}
         {canCreate && (
           <button
             onClick={() => setShowForm(!showForm)}
-            className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700"
+            className="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 flex-shrink-0"
           >
             + New Story
           </button>

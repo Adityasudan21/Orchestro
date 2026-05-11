@@ -10,6 +10,7 @@ import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
 import com.Orchestra.OrchestraBackend.model.Role;
 import com.Orchestra.OrchestraBackend.model.Story;
 import com.Orchestra.OrchestraBackend.model.Task;
+import com.Orchestra.OrchestraBackend.model.TicketStatus;
 import com.Orchestra.OrchestraBackend.model.User;
 import com.Orchestra.OrchestraBackend.repository.StoryRepository;
 import com.Orchestra.OrchestraBackend.repository.TaskRepository;
@@ -72,7 +73,10 @@ public class TaskService {
             userRepository.findById(request.getAssigneeId()).ifPresent(builder::assignee);
         }
 
-        return TaskResponse.from(taskRepository.save(builder.build()));
+        TaskResponse result = TaskResponse.from(taskRepository.save(builder.build()));
+        // New task is never DONE, so revert story if it was marked done prematurely.
+        revertStoryIfDone(story);
+        return result;
     }
 
     public TaskResponse updateTask(Long id, CreateTaskRequest request) {
@@ -95,7 +99,11 @@ public class TaskService {
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
         task.setStatus(request.getStatus());
         // TODO: when status == ASSIGNED_TO_AI, publish to Kafka topic 'ai-ticket-queue'
-        return TaskResponse.from(taskRepository.save(task));
+        TaskResponse result = TaskResponse.from(taskRepository.save(task));
+        if (request.getStatus() != TicketStatus.DONE) {
+            revertStoryIfDone(task.getStory());
+        }
+        return result;
     }
 
     public TaskResponse updateType(Long id, UpdateTypeRequest request) {
@@ -119,5 +127,16 @@ public class TaskService {
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + taskId));
         task.setAssignee(assignee);
         return TaskResponse.from(taskRepository.save(task));
+    }
+
+    // If the story is currently DONE but has at least one non-DONE task, revert it to IN_PROGRESS.
+    private void revertStoryIfDone(Story story) {
+        if (story.getStatus() != TicketStatus.DONE) return;
+        boolean anyNotDone = taskRepository.findByStoryId(story.getId()).stream()
+            .anyMatch(t -> t.getStatus() != TicketStatus.DONE);
+        if (anyNotDone) {
+            story.setStatus(TicketStatus.IN_PROGRESS);
+            storyRepository.save(story);
+        }
     }
 }

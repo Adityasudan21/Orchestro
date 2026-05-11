@@ -7,13 +7,10 @@ import { attachmentsApi } from '../api/attachments.api'
 import { usersApi } from '../api/users.api'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { AssigneeSelect } from '../components/common/AssigneeSelect'
+import { StatusSelect } from '../components/common/StatusSelect'
 import { useAuth } from '../context/AuthContext'
 import { statusLabel, typeColors } from '../utils/statusColors'
 import type { TicketStatus, TaskType } from '../types'
-
-const STATUSES: TicketStatus[] = [
-  'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'BLOCKED', 'ASSIGNED_TO_AI', 'NEEDS_MORE_INFO',
-]
 
 const TYPES: TaskType[] = ['DEV', 'DOC', 'BUG']
 
@@ -27,60 +24,6 @@ const statusDot: Record<TicketStatus, string> = {
   BLOCKED: 'bg-red-500',
   ASSIGNED_TO_AI: 'bg-yellow-500',
   NEEDS_MORE_INFO: 'bg-orange-500',
-}
-
-const statusPillBg: Record<TicketStatus, string> = {
-  TODO: 'bg-gray-100 text-gray-700 border-gray-200 hover:border-gray-300',
-  IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200 hover:border-blue-300',
-  IN_REVIEW: 'bg-purple-50 text-purple-700 border-purple-200 hover:border-purple-300',
-  DONE: 'bg-green-50 text-green-700 border-green-200 hover:border-green-300',
-  BLOCKED: 'bg-red-50 text-red-700 border-red-200 hover:border-red-300',
-  ASSIGNED_TO_AI: 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:border-yellow-300',
-  NEEDS_MORE_INFO: 'bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-300',
-}
-
-function StatusSelect({ value, onChange, disabled }: { value: TicketStatus; onChange: (s: TicketStatus) => void; disabled?: boolean }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [])
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold transition-colors disabled:opacity-50 ${statusPillBg[value]}`}
-      >
-        <span className={`w-1.5 h-1.5 rounded-full ${statusDot[value]}`}></span>
-        {statusLabel[value]}
-        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="opacity-60"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-gray-200 bg-white shadow-lg shadow-slate-900/10 py-1 overflow-hidden">
-          {STATUSES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => { onChange(s); setOpen(false) }}
-              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left hover:bg-slate-50 transition-colors ${s === value ? 'bg-slate-50 font-semibold text-slate-900' : 'text-gray-700'}`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${statusDot[s]}`}></span>
-              <span className="flex-1">{statusLabel[s]}</span>
-              {s === value && (
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6.5L5 9.5L10 3" stroke="#3B5BDB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 function TypeSelect({ value, onChange, disabled }: { value: TaskType; onChange: (t: TaskType) => void; disabled?: boolean }) {
@@ -139,6 +82,9 @@ export function TaskDetailPage() {
   const queryClient = useQueryClient()
   const { user: me } = useAuth()
   const [comment, setComment] = useState('')
+  const [editingMeta, setEditingMeta] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDesc, setEditDesc] = useState('')
   const canAssign = me?.role === 'ADMIN' || me?.role === 'MANAGER'
 
   const { data: task, isLoading } = useQuery({
@@ -158,7 +104,11 @@ export function TaskDetailPage() {
 
   const statusMutation = useMutation({
     mutationFn: (status: TicketStatus) => tasksApi.updateStatus(taskId, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task', taskId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+      // Invalidate parent story so its status reflects any backend revert to IN_PROGRESS.
+      if (task) queryClient.invalidateQueries({ queryKey: ['story', task.storyId] })
+    },
   })
 
   const commentMutation = useMutation({
@@ -189,6 +139,20 @@ export function TaskDetailPage() {
     mutationFn: (type: string) => tasksApi.updateType(taskId, type),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task', taskId] }),
   })
+
+  const updateMetaMutation = useMutation({
+    mutationFn: () => tasksApi.update(taskId, { title: editTitle, description: editDesc, type: task!.type }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+      setEditingMeta(false)
+    },
+  })
+
+  function startEditing() {
+    setEditTitle(task!.title)
+    setEditDesc(task!.description ?? '')
+    setEditingMeta(true)
+  }
 
   if (isLoading) return <LoadingSpinner />
   if (!task) return null
@@ -221,12 +185,53 @@ export function TaskDetailPage() {
           <span className="text-gray-500">Created {new Date(task.createdAt).toLocaleString()}</span>
         </div>
 
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900 leading-tight mb-4">{task.title}</h1>
-
-        {task.description && (
-          <p className="text-sm text-gray-700 leading-relaxed max-w-[640px] mb-8 whitespace-pre-wrap">
-            {task.description}
-          </p>
+        {editingMeta ? (
+          <div className="mb-8">
+            <input
+              autoFocus
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full text-2xl font-semibold tracking-tight text-gray-900 border border-gray-300 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <textarea
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              placeholder="Description (optional)"
+              rows={4}
+              className="w-full text-sm text-gray-700 border border-gray-300 rounded-lg px-3 py-2 mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => updateMetaMutation.mutate()}
+                disabled={!editTitle || updateMetaMutation.isPending}
+                className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-md transition-colors"
+              >
+                {updateMetaMutation.isPending ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => setEditingMeta(false)}
+                className="text-xs text-gray-500 px-3 py-1.5 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="group relative mb-4">
+            <h1 className="text-3xl font-semibold tracking-tight text-gray-900 leading-tight">{task.title}</h1>
+            {task.description && (
+              <p className="text-sm text-gray-700 leading-relaxed max-w-[640px] mt-3 whitespace-pre-wrap">
+                {task.description}
+              </p>
+            )}
+            <button
+              onClick={startEditing}
+              title="Edit title & description"
+              className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          </div>
         )}
 
         {/* Activity & comments */}
@@ -246,7 +251,7 @@ export function TaskDetailPage() {
           </div>
         )}
 
-        <div className="space-y-3 mt-4">
+        <div className="space-y-3 mt-4 max-h-72 overflow-y-auto pr-1">
           {comments?.map((c) => (
             <div key={c.id} className="flex gap-2.5 py-2">
               <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
