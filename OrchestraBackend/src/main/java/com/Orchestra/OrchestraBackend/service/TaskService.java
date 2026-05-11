@@ -3,6 +3,7 @@ package com.Orchestra.OrchestraBackend.service;
 import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateTaskRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
+import com.Orchestra.OrchestraBackend.dto.request.UpdateTypeRequest;
 import com.Orchestra.OrchestraBackend.dto.response.TaskResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
 import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
@@ -94,6 +95,13 @@ public class TaskService {
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
         task.setStatus(request.getStatus());
         // TODO: when status == ASSIGNED_TO_AI, publish to Kafka topic 'ai-ticket-queue'
+        return TaskResponse.from(taskRepository.save(task));
+    }
+
+    public TaskResponse updateType(Long id, UpdateTypeRequest request) {
+        Task task = taskRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
+        task.setType(request.getType());
         return TaskResponse.from(taskRepository.save(task));
     }
 

@@ -7,6 +7,7 @@ import { usersApi } from '../api/users.api'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { TypeBadge } from '../components/common/TypeBadge'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
+import { AssigneeSelect } from '../components/common/AssigneeSelect'
 import { useAuth } from '../context/AuthContext'
 import type { TaskType } from '../types'
 
@@ -89,27 +90,17 @@ export function StoryDetailPage() {
         <p className="text-sm text-gray-500 mb-2">{story.description}</p>
       )}
 
-      <div className="flex items-center gap-4 mb-6">
-        {story?.assignee && (
-          <p className="text-xs text-gray-400">Assignee: {story.assignee.username}</p>
-        )}
-        {canAssign && assignableUsers && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Assign to:</span>
-            <select
-              defaultValue={story?.assignee?.id ?? ''}
-              onChange={(e) => e.target.value && assignMutation.mutate(Number(e.target.value))}
-              disabled={assignMutation.isPending}
-              className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Unassigned</option>
-              {assignableUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.username} ({u.role})
-                </option>
-              ))}
-            </select>
-          </div>
+      <div className="flex items-center gap-3 mb-6">
+        <span className="text-xs text-gray-500">Assignee</span>
+        {canAssign && assignableUsers ? (
+          <AssigneeSelect
+            value={story?.assignee?.id ?? null}
+            options={assignableUsers}
+            onChange={(id) => assignMutation.mutate(id)}
+            disabled={assignMutation.isPending}
+          />
+        ) : (
+          <span className="text-xs text-gray-700">{story?.assignee?.username ?? 'Unassigned'}</span>
         )}
       </div>
 
@@ -146,18 +137,14 @@ export function StoryDetailPage() {
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none resize-none focus:ring-2 focus:ring-blue-500"
           />
           {canAssign && assignableUsers && (
-            <div className="mb-3">
-              <p className="text-xs font-medium text-gray-500 mb-1">Assignee</p>
-              <select
-                value={newTaskAssigneeId ?? ''}
-                onChange={(e) => setNewTaskAssigneeId(e.target.value ? Number(e.target.value) : undefined)}
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Unassigned</option>
-                {assignableUsers.map((u) => (
-                  <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
-                ))}
-              </select>
+            <div className="mb-3 flex items-center gap-2">
+              <p className="text-xs font-medium text-gray-500">Assignee</p>
+              <AssigneeSelect
+                value={newTaskAssigneeId ?? null}
+                options={assignableUsers}
+                onChange={(id) => setNewTaskAssigneeId(id)}
+                disabled={createMutation.isPending}
+              />
             </div>
           )}
           <div className="flex gap-2">

@@ -3,6 +3,7 @@ package com.Orchestra.OrchestraBackend.controller;
 import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateTaskRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
+import com.Orchestra.OrchestraBackend.dto.request.UpdateTypeRequest;
 import com.Orchestra.OrchestraBackend.dto.response.TaskResponse;
 import com.Orchestra.OrchestraBackend.service.TaskService;
 import jakarta.validation.Valid;
@@ -60,6 +61,14 @@ public class TaskController {
         @Valid @RequestBody UpdateStatusRequest request
     ) {
         return ResponseEntity.ok(taskService.updateStatus(id, request));
+    }
+
+    @PatchMapping("/api/tasks/{id}/type")
+    public ResponseEntity<TaskResponse> updateTaskType(
+        @PathVariable Long id,
+        @Valid @RequestBody UpdateTypeRequest request
+    ) {
+        return ResponseEntity.ok(taskService.updateType(id, request));
     }
 
     @PatchMapping("/api/tasks/{id}/assignee")
