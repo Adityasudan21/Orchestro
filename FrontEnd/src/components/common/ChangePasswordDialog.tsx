@@ -43,7 +43,7 @@ export function ChangePasswordDialog({ open, onClose }: Props) {
       }, 1200)
     } catch (err: any) {
       const status = err?.response?.status
-      setError(status === 401 ? 'Current password is incorrect.' : 'Something went wrong. Please try again.')
+      setError(status === 403 ? 'Current password is incorrect.' : 'Something went wrong. Please try again.')
     } finally {
       setPending(false)
     }
