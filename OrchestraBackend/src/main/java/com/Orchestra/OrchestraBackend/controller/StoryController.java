@@ -72,4 +72,13 @@ public class StoryController {
     ) {
         return ResponseEntity.ok(storyService.assignStory(id, request, auth.getName()));
     }
+
+    @PatchMapping("/api/stories/{id}/reporter")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<StoryResponse> assignStoryReporter(
+        @PathVariable Long id,
+        @Valid @RequestBody AssignRequest request
+    ) {
+        return ResponseEntity.ok(storyService.assignReporter(id, request));
+    }
 }

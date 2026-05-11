@@ -129,6 +129,15 @@ public class TaskService {
         return TaskResponse.from(taskRepository.save(task));
     }
 
+    public TaskResponse assignReporter(Long taskId, AssignRequest request) {
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + taskId));
+        User reporter = userRepository.findById(request.getAssigneeId())
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getAssigneeId()));
+        task.setReporter(reporter);
+        return TaskResponse.from(taskRepository.save(task));
+    }
+
     // If the story is currently DONE but has at least one non-DONE task, revert it to IN_PROGRESS.
     private void revertStoryIfDone(Story story) {
         if (story.getStatus() != TicketStatus.DONE) return;

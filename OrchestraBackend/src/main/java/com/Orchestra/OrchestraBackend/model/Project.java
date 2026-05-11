@@ -31,6 +31,14 @@ public class Project {
     @JoinColumn(name = "created_by")
     private User createdBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignee_id")
+    private User assignee;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reporter_id")
+    private User reporter;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "project_members",

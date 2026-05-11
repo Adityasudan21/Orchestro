@@ -1,5 +1,6 @@
 package com.Orchestra.OrchestraBackend.service;
 
+import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateProjectRequest;
 import com.Orchestra.OrchestraBackend.dto.response.ProjectResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
@@ -35,7 +36,7 @@ public class ProjectService {
     public List<ProjectResponse> getMyProjects(String username) {
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
-        return projectRepository.findByMembersContaining(user).stream()
+        return projectRepository.findProjectsInvolving(user).stream()
             .map(ProjectResponse::from)
             .collect(Collectors.toList());
     }
@@ -73,6 +74,24 @@ public class ProjectService {
             .orElseThrow(() -> new ResourceNotFoundException("Project not found: " + id));
         project.setName(request.getName());
         if (request.getDescription() != null) project.setDescription(request.getDescription());
+        return ProjectResponse.from(projectRepository.save(project));
+    }
+
+    public ProjectResponse assignProject(Long projectId, AssignRequest request) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found: " + projectId));
+        User assignee = userRepository.findById(request.getAssigneeId())
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getAssigneeId()));
+        project.setAssignee(assignee);
+        return ProjectResponse.from(projectRepository.save(project));
+    }
+
+    public ProjectResponse assignProjectReporter(Long projectId, AssignRequest request) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found: " + projectId));
+        User reporter = userRepository.findById(request.getAssigneeId())
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getAssigneeId()));
+        project.setReporter(reporter);
         return ProjectResponse.from(projectRepository.save(project));
     }
 

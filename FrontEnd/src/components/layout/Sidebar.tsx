@@ -4,7 +4,8 @@ import clsx from 'clsx'
 
 const navItems = [
   { to: '/dashboard', label: 'My Work' },
-  { to: '/projects', label: 'Projects' },
+  { to: '/my-projects', label: 'My Projects' },
+  { to: '/projects', label: 'All Projects' },
 ]
 
 const adminItems = [{ to: '/admin', label: 'Users' }]

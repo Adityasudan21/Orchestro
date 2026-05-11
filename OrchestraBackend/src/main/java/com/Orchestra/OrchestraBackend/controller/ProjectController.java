@@ -1,5 +1,6 @@
 package com.Orchestra.OrchestraBackend.controller;
 
+import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateProjectRequest;
 import com.Orchestra.OrchestraBackend.dto.response.ProjectResponse;
 import com.Orchestra.OrchestraBackend.service.ProjectService;
@@ -52,6 +53,24 @@ public class ProjectController {
         @Valid @RequestBody CreateProjectRequest request
     ) {
         return ResponseEntity.ok(projectService.updateProject(id, request));
+    }
+
+    @PatchMapping("/{id}/assignee")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ProjectResponse> assignProject(
+        @PathVariable Long id,
+        @Valid @RequestBody AssignRequest request
+    ) {
+        return ResponseEntity.ok(projectService.assignProject(id, request));
+    }
+
+    @PatchMapping("/{id}/reporter")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ProjectResponse> assignProjectReporter(
+        @PathVariable Long id,
+        @Valid @RequestBody AssignRequest request
+    ) {
+        return ResponseEntity.ok(projectService.assignProjectReporter(id, request));
     }
 
     @DeleteMapping("/{id}")

@@ -50,6 +50,11 @@ export function StoryDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['story', storyId] }),
   })
 
+  const reporterMutation = useMutation({
+    mutationFn: (assigneeId: number) => storiesApi.assignReporter(storyId, assigneeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['story', storyId] }),
+  })
+
   const updateMetaMutation = useMutation({
     mutationFn: () => storiesApi.update(storyId, { title: editTitle, description: editDesc }),
     onSuccess: () => {
@@ -88,7 +93,7 @@ export function StoryDetailPage() {
   return (
     <div className="p-8">
       <div className="mb-1 text-sm text-gray-400">
-        <Link to="/projects" className="hover:text-blue-600">Projects</Link>
+        <Link to="/my-projects" className="hover:text-blue-600">My Projects</Link>
         {' › '}
         {story && (
           <Link to={`/projects/${story.projectId}`} className="hover:text-blue-600">
@@ -163,18 +168,33 @@ export function StoryDetailPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
-        <span className="text-xs text-gray-500">Assignee</span>
-        {canAssign && assignableUsers ? (
-          <AssigneeSelect
-            value={story?.assignee?.id ?? null}
-            options={assignableUsers}
-            onChange={(id) => assignMutation.mutate(id)}
-            disabled={assignMutation.isPending}
-          />
-        ) : (
-          <span className="text-xs text-gray-700">{story?.assignee?.username ?? 'Unassigned'}</span>
-        )}
+      <div className="flex flex-col gap-2 mb-6">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500 w-16">Assignee</span>
+          {canAssign && assignableUsers ? (
+            <AssigneeSelect
+              value={story?.assignee?.id ?? null}
+              options={assignableUsers}
+              onChange={(id) => assignMutation.mutate(id)}
+              disabled={assignMutation.isPending}
+            />
+          ) : (
+            <span className="text-xs text-gray-700">{story?.assignee?.username ?? 'Unassigned'}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500 w-16">Reporter</span>
+          {canAssign && assignableUsers ? (
+            <AssigneeSelect
+              value={story?.reporter?.id ?? null}
+              options={assignableUsers}
+              onChange={(id) => reporterMutation.mutate(id)}
+              disabled={reporterMutation.isPending}
+            />
+          ) : (
+            <span className="text-xs text-gray-700">{story?.reporter?.username ?? '—'}</span>
+          )}
+        </div>
       </div>
 
       {showForm && (

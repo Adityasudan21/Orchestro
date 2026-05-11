@@ -135,6 +135,11 @@ export function TaskDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task', taskId] }),
   })
 
+  const reporterMutation = useMutation({
+    mutationFn: (assigneeId: number) => tasksApi.assignReporter(taskId, assigneeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task', taskId] }),
+  })
+
   const typeMutation = useMutation({
     mutationFn: (type: string) => tasksApi.updateType(taskId, type),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task', taskId] }),
@@ -163,7 +168,7 @@ export function TaskDetailPage() {
       <section className="px-8 py-7 overflow-auto lg:border-r border-gray-200">
         {/* Breadcrumb */}
         <div className="text-sm text-gray-400 mb-4">
-          <Link to="/projects" className="hover:text-blue-600">Projects</Link>
+          <Link to="/my-projects" className="hover:text-blue-600">My Projects</Link>
           {' / '}
           <Link to={`/projects/${task.projectId}`} className="hover:text-blue-600">Project #{task.projectId}</Link>
           {' / '}
@@ -322,7 +327,18 @@ export function TaskDetailPage() {
           )}
         </Row>
 
-        <Row label="Reporter"><AvatarChip name={task.reporter?.username ?? '—'} /></Row>
+        <Row label="Reporter">
+          {canAssign && assignableUsers ? (
+            <AssigneeSelect
+              value={task.reporter?.id ?? null}
+              options={assignableUsers}
+              onChange={(id) => reporterMutation.mutate(id)}
+              disabled={reporterMutation.isPending}
+            />
+          ) : (
+            <AvatarChip name={task.reporter?.username ?? '—'} />
+          )}
+        </Row>
 
         <Row label="Type">
           <TypeSelect

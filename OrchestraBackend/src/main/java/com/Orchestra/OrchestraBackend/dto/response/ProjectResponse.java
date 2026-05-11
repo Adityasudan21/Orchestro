@@ -15,6 +15,8 @@ public class ProjectResponse {
     private String name;
     private String description;
     private UserResponse createdBy;
+    private UserResponse assignee;
+    private UserResponse reporter;
     private Set<UserResponse> members;
     private LocalDateTime createdAt;
 
@@ -24,6 +26,8 @@ public class ProjectResponse {
             .name(project.getName())
             .description(project.getDescription())
             .createdBy(project.getCreatedBy() != null ? UserResponse.from(project.getCreatedBy()) : null)
+            .assignee(project.getAssignee() != null ? UserResponse.from(project.getAssignee()) : null)
+            .reporter(project.getReporter() != null ? UserResponse.from(project.getReporter()) : null)
             .members(project.getMembers().stream().map(UserResponse::from).collect(Collectors.toSet()))
             .createdAt(project.getCreatedAt())
             .build();

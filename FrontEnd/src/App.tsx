@@ -3,6 +3,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ProjectsPage } from './pages/ProjectsPage'
+import { MyProjectsPage } from './pages/MyProjectsPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { StoryDetailPage } from './pages/StoryDetailPage'
 import { TaskDetailPage } from './pages/TaskDetailPage'
@@ -15,6 +16,7 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/my-projects" element={<MyProjectsPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
         <Route path="/stories/:id" element={<StoryDetailPage />} />

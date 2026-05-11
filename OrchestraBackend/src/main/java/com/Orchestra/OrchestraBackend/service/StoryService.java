@@ -108,4 +108,13 @@ public class StoryService {
         story.setAssignee(assignee);
         return StoryResponse.from(storyRepository.save(story));
     }
+
+    public StoryResponse assignReporter(Long storyId, AssignRequest request) {
+        Story story = storyRepository.findById(storyId)
+            .orElseThrow(() -> new ResourceNotFoundException("Story not found: " + storyId));
+        User reporter = userRepository.findById(request.getAssigneeId())
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getAssigneeId()));
+        story.setReporter(reporter);
+        return StoryResponse.from(storyRepository.save(story));
+    }
 }

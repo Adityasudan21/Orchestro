@@ -16,4 +16,6 @@ export const tasksApi = {
     api.patch<Task>(`/tasks/${id}/type`, { type }).then((r) => r.data),
   assign: (id: number, assigneeId: number) =>
     api.patch<Task>(`/tasks/${id}/assignee`, { assigneeId }).then((r) => r.data),
+  assignReporter: (id: number, assigneeId: number) =>
+    api.patch<Task>(`/tasks/${id}/reporter`, { assigneeId }).then((r) => r.data),
 }

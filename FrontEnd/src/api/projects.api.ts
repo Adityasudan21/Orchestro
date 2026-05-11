@@ -9,5 +9,9 @@ export const projectsApi = {
     api.post<Project>('/projects', payload).then((r) => r.data),
   update: (id: number, payload: CreateProjectPayload) =>
     api.put<Project>(`/projects/${id}`, payload).then((r) => r.data),
+  assign: (id: number, assigneeId: number) =>
+    api.patch<Project>(`/projects/${id}/assignee`, { assigneeId }).then((r) => r.data),
+  assignReporter: (id: number, assigneeId: number) =>
+    api.patch<Project>(`/projects/${id}/reporter`, { assigneeId }).then((r) => r.data),
   delete: (id: number) => api.delete(`/projects/${id}`),
 }

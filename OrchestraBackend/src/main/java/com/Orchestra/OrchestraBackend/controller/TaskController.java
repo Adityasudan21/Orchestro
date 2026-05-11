@@ -80,4 +80,13 @@ public class TaskController {
     ) {
         return ResponseEntity.ok(taskService.assignTask(id, request, auth.getName()));
     }
+
+    @PatchMapping("/api/tasks/{id}/reporter")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<TaskResponse> assignTaskReporter(
+        @PathVariable Long id,
+        @Valid @RequestBody AssignRequest request
+    ) {
+        return ResponseEntity.ok(taskService.assignReporter(id, request));
+    }
 }

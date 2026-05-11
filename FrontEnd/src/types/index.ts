@@ -22,6 +22,8 @@ export interface Project {
   name: string
   description: string | null
   createdBy: User | null
+  assignee: User | null
+  reporter: User | null
   members: User[]
   createdAt: string
 }

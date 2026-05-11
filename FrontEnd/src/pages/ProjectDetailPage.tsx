@@ -6,6 +6,7 @@ import { storiesApi } from '../api/stories.api'
 import { usersApi } from '../api/users.api'
 import { useAuth } from '../context/AuthContext'
 import { StatusBadge } from '../components/common/StatusBadge'
+import { AssigneeSelect } from '../components/common/AssigneeSelect'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 
 export function ProjectDetailPage() {
@@ -35,7 +36,17 @@ export function ProjectDetailPage() {
   const { data: assignableUsers } = useQuery({
     queryKey: ['users', 'assignable'],
     queryFn: usersApi.getAssignable,
-    enabled: showForm && canCreate,
+    enabled: canCreate,
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: (assigneeId: number) => projectsApi.assign(projectId, assigneeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+  })
+
+  const reporterMutation = useMutation({
+    mutationFn: (assigneeId: number) => projectsApi.assignReporter(projectId, assigneeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
   })
 
   const updateMetaMutation = useMutation({
@@ -69,7 +80,7 @@ export function ProjectDetailPage() {
   return (
     <div className="p-8">
       <div className="mb-1 text-sm text-gray-400">
-        <Link to="/projects" className="hover:text-blue-600">Projects</Link>
+        <Link to="/my-projects" className="hover:text-blue-600">My Projects</Link>
         {' › '}
       </div>
       <div className="flex items-start justify-between mb-6">
@@ -125,6 +136,40 @@ export function ProjectDetailPage() {
           </button>
         )}
       </div>
+
+      {/* Assignee + Reporter rows */}
+      {!editingMeta && (
+        <div className="flex flex-col gap-2 mb-6 -mt-2">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400 w-20">Assignee</span>
+            {canCreate && assignableUsers ? (
+              <AssigneeSelect
+                value={project?.assignee?.id ?? null}
+                options={assignableUsers.map((u) => ({ id: u.id, username: u.username, role: u.role }))}
+                onChange={(id) => assignMutation.mutate(id)}
+              />
+            ) : (
+              <span className="text-xs text-gray-600">
+                {project?.assignee?.username ?? <span className="text-gray-400 italic">Unassigned</span>}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-gray-400 w-20">Reporter</span>
+            {canCreate && assignableUsers ? (
+              <AssigneeSelect
+                value={project?.reporter?.id ?? null}
+                options={assignableUsers.map((u) => ({ id: u.id, username: u.username, role: u.role }))}
+                onChange={(id) => reporterMutation.mutate(id)}
+              />
+            ) : (
+              <span className="text-xs text-gray-600">
+                {project?.reporter?.username ?? <span className="text-gray-400 italic">None</span>}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="mb-6 bg-white border border-gray-200 rounded-xl p-5">
