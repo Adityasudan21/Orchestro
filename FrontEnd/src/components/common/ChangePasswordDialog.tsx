@@ -7,6 +7,8 @@ interface Props {
   onClose: () => void
 }
 
+type VerifyStatus = 'idle' | 'checking' | 'valid' | 'invalid'
+
 export function ChangePasswordDialog({ open, onClose }: Props) {
   const { updateCredentials } = useAuth()
   const [current, setCurrent] = useState('')
@@ -15,6 +17,7 @@ export function ChangePasswordDialog({ open, onClose }: Props) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [pending, setPending] = useState(false)
+  const [currentStatus, setCurrentStatus] = useState<VerifyStatus>('idle')
 
   if (!open) return null
 
@@ -24,6 +27,17 @@ export function ChangePasswordDialog({ open, onClose }: Props) {
     if (next === current) return 'New password must differ from the current one.'
     if (next !== confirm) return 'New passwords do not match.'
     return ''
+  }
+
+  async function handleCurrentBlur() {
+    if (!current) return
+    setCurrentStatus('checking')
+    try {
+      await usersApi.verifyCurrentPassword(current)
+      setCurrentStatus('valid')
+    } catch (err: any) {
+      setCurrentStatus(err?.response?.status === 400 ? 'invalid' : 'idle')
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,11 +53,17 @@ export function ChangePasswordDialog({ open, onClose }: Props) {
       setTimeout(() => {
         setSuccess(false)
         setCurrent(''); setNext(''); setConfirm('')
+        setCurrentStatus('idle')
         onClose()
       }, 1200)
     } catch (err: any) {
       const status = err?.response?.status
-      setError(status === 403 ? 'Current password is incorrect.' : 'Something went wrong. Please try again.')
+      if (status === 400) {
+        setError('Current password is incorrect.')
+        setCurrentStatus('invalid')
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
     } finally {
       setPending(false)
     }
@@ -51,7 +71,14 @@ export function ChangePasswordDialog({ open, onClose }: Props) {
 
   function handleClose() {
     setCurrent(''); setNext(''); setConfirm(''); setError(''); setSuccess(false)
+    setCurrentStatus('idle')
     onClose()
+  }
+
+  function onCurrentChange(v: string) {
+    setCurrent(v)
+    setError('')
+    setCurrentStatus('idle')
   }
 
   return (
@@ -73,20 +100,49 @@ export function ChangePasswordDialog({ open, onClose }: Props) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Current Password</label>
-              <input
-                type="password"
-                autoFocus
-                value={current}
-                onChange={(e) => setCurrentAndClearError(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <input
+                  type="password"
+                  autoFocus
+                  value={current}
+                  onChange={(e) => onCurrentChange(e.target.value)}
+                  onBlur={handleCurrentBlur}
+                  className={`w-full border rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 ${
+                    currentStatus === 'invalid'
+                      ? 'border-red-400 focus:ring-red-400'
+                      : currentStatus === 'valid'
+                      ? 'border-green-400 focus:ring-green-400'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2">
+                  {currentStatus === 'checking' && (
+                    <svg className="w-4 h-4 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeDasharray="40 20" />
+                    </svg>
+                  )}
+                  {currentStatus === 'valid' && (
+                    <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  {currentStatus === 'invalid' && (
+                    <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                </span>
+              </div>
+              {currentStatus === 'invalid' && (
+                <p className="text-[11px] text-red-600 mt-1">Current password is incorrect.</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">New Password</label>
               <input
                 type="password"
                 value={next}
-                onChange={(e) => setNextAndClearError(e.target.value)}
+                onChange={(e) => { setNext(e.target.value); setError('') }}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -95,7 +151,7 @@ export function ChangePasswordDialog({ open, onClose }: Props) {
               <input
                 type="password"
                 value={confirm}
-                onChange={(e) => setConfirmAndClearError(e.target.value)}
+                onChange={(e) => { setConfirm(e.target.value); setError('') }}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -125,8 +181,4 @@ export function ChangePasswordDialog({ open, onClose }: Props) {
       </div>
     </div>
   )
-
-  function setCurrentAndClearError(v: string) { setCurrent(v); setError('') }
-  function setNextAndClearError(v: string) { setNext(v); setError('') }
-  function setConfirmAndClearError(v: string) { setConfirm(v); setError('') }
 }

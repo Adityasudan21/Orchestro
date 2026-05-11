@@ -8,4 +8,6 @@ export const usersApi = {
   deleteUser: (id: number) => api.delete(`/users/${id}`),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.post('/users/me/password', { currentPassword, newPassword }).then(() => {}),
+  verifyCurrentPassword: (currentPassword: string) =>
+    api.post('/users/me/password/verify', { currentPassword }).then(() => {}),
 }

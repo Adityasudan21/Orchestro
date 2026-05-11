@@ -2,6 +2,7 @@ package com.Orchestra.OrchestraBackend.controller;
 
 import com.Orchestra.OrchestraBackend.dto.request.ChangePasswordRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateRoleRequest;
+import com.Orchestra.OrchestraBackend.dto.request.VerifyPasswordRequest;
 import com.Orchestra.OrchestraBackend.dto.response.UserResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
 import com.Orchestra.OrchestraBackend.model.Role;
@@ -56,6 +57,15 @@ public class UserController {
         Authentication auth
     ) {
         userService.changePassword(auth.getName(), request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/me/password/verify")
+    public ResponseEntity<Void> verifyCurrentPassword(
+        @Valid @RequestBody VerifyPasswordRequest request,
+        Authentication auth
+    ) {
+        userService.verifyCurrentPassword(auth.getName(), request.getCurrentPassword());
         return ResponseEntity.noContent().build();
     }
 

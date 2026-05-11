@@ -4,7 +4,6 @@ import com.Orchestra.OrchestraBackend.dto.request.ChangePasswordRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateRoleRequest;
 import com.Orchestra.OrchestraBackend.dto.response.UserResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
-import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
 import com.Orchestra.OrchestraBackend.model.User;
 import com.Orchestra.OrchestraBackend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +28,19 @@ public class UserService {
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new UnauthorizedException("Current password is incorrect");
+            throw new IllegalArgumentException("Current password is incorrect");
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public void verifyCurrentPassword(String username, String currentPassword) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
     }
 
     public UserResponse updateRole(Long userId, UpdateRoleRequest request) {
