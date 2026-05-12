@@ -1,4 +1,4 @@
-const MENTION_RE = /@(\w+)/g
+const MENTION_RE = /@[\w.]+/g
 
 interface Props {
   content: string

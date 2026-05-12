@@ -36,7 +36,7 @@ public class CommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
+    private static final Pattern MENTION_PATTERN = Pattern.compile("@([\\w.]+)");
 
     @Transactional(readOnly = true)
     public List<CommentResponse> getTaskComments(Long taskId) {

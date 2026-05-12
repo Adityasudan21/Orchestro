@@ -40,7 +40,7 @@ export function MentionTextarea({ value, onChange, placeholder, rows = 2, classN
     onChange(val)
     const cursor = e.target.selectionStart ?? val.length
     const textUpToCursor = val.slice(0, cursor)
-    const match = textUpToCursor.match(/@(\w*)$/)
+    const match = textUpToCursor.match(/@([\w.]*)$/)
     if (match && users.length > 0) {
       setMentionQuery(match[1])
       setMentionStart(cursor - match[0].length)

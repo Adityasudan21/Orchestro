@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { MentionTextarea } from '../components/common/MentionTextarea'
+import { CommentText } from '../components/common/CommentText'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectsApi } from '../api/projects.api'
@@ -72,7 +74,6 @@ export function ProjectDetailPage() {
   const { data: assignableUsers } = useQuery({
     queryKey: ['users', 'assignable'],
     queryFn: usersApi.getAssignable,
-    enabled: canCreate,
   })
 
   const { data: comments } = useQuery({
@@ -286,7 +287,7 @@ export function ProjectDetailPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+                    <CommentText content={c.content} />
                   )}
                 </div>
               </div>
@@ -304,12 +305,13 @@ export function ProjectDetailPage() {
               {initials(user?.username)}
             </div>
             <div className="flex-1 border border-gray-200 rounded-xl bg-white p-3 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition">
-              <textarea
+              <MentionTextarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Leave a comment…"
+                onChange={setComment}
+                placeholder="Leave a comment, @mention or paste a link…"
                 rows={2}
                 className="w-full border-0 outline-none resize-none text-sm placeholder-gray-400 bg-transparent"
+                users={assignableUsers ?? []}
               />
               <div className="flex justify-end pt-2 border-t border-gray-100">
                 <button
