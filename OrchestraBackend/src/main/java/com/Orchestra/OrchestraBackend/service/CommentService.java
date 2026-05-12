@@ -3,8 +3,10 @@ package com.Orchestra.OrchestraBackend.service;
 import com.Orchestra.OrchestraBackend.dto.request.CreateCommentRequest;
 import com.Orchestra.OrchestraBackend.dto.response.CommentResponse;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
+import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
 import com.Orchestra.OrchestraBackend.model.Comment;
 import com.Orchestra.OrchestraBackend.model.Project;
+import com.Orchestra.OrchestraBackend.model.Role;
 import com.Orchestra.OrchestraBackend.model.Story;
 import com.Orchestra.OrchestraBackend.model.Task;
 import com.Orchestra.OrchestraBackend.model.User;
@@ -18,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +34,9 @@ public class CommentService {
     private final StoryRepository storyRepository;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
+
+    private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
 
     @Transactional(readOnly = true)
     public List<CommentResponse> getTaskComments(Long taskId) {
@@ -55,7 +62,13 @@ public class CommentService {
             .user(user)
             .content(request.getContent())
             .build();
-        return CommentResponse.from(commentRepository.save(comment));
+        CommentResponse result = CommentResponse.from(commentRepository.save(comment));
+        processMentions(request.getContent(), user, "TASK", taskId);
+        if (task.getAssignee() != null && !task.getAssignee().getId().equals(user.getId())) {
+            notificationService.notify(task.getAssignee(),
+                user.getUsername() + " commented on your task: " + task.getTitle(), "TASK", taskId);
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -88,6 +101,48 @@ public class CommentService {
             .user(user)
             .content(request.getContent())
             .build();
+        CommentResponse result = CommentResponse.from(commentRepository.save(comment));
+        processMentions(request.getContent(), user, "STORY", storyId);
+        if (story.getAssignee() != null && !story.getAssignee().getId().equals(user.getId())) {
+            notificationService.notify(story.getAssignee(),
+                user.getUsername() + " commented on your story: " + story.getTitle(), "STORY", storyId);
+        }
+        return result;
+    }
+
+    private void processMentions(String content, User commenter, String entityType, Long entityId) {
+        Matcher m = MENTION_PATTERN.matcher(content);
+        while (m.find()) {
+            String mentioned = m.group(1);
+            if (!mentioned.equals(commenter.getUsername())) {
+                userRepository.findByUsername(mentioned).ifPresent(target ->
+                    notificationService.notify(target,
+                        commenter.getUsername() + " mentioned you in a comment", entityType, entityId)
+                );
+            }
+        }
+    }
+
+    public void deleteComment(Long commentId, String username) {
+        Comment comment = commentRepository.findById(commentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + commentId));
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        if (!comment.getUser().getUsername().equals(username) && user.getRole() != Role.ADMIN) {
+            throw new UnauthorizedException("You can only delete your own comments");
+        }
+        commentRepository.delete(comment);
+    }
+
+    public CommentResponse updateComment(Long commentId, String content, String username) {
+        Comment comment = commentRepository.findById(commentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + commentId));
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        if (!comment.getUser().getUsername().equals(username) && user.getRole() != Role.ADMIN) {
+            throw new UnauthorizedException("You can only edit your own comments");
+        }
+        comment.setContent(content);
         return CommentResponse.from(commentRepository.save(comment));
     }
 }

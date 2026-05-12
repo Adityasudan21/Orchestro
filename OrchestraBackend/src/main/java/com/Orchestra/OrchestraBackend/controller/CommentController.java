@@ -62,4 +62,19 @@ public class CommentController {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(commentService.addStoryComment(storyId, request, auth.getName()));
     }
+
+    @DeleteMapping("/api/comments/{id}")
+    public ResponseEntity<Void> deleteComment(@PathVariable Long id, Authentication auth) {
+        commentService.deleteComment(id, auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/api/comments/{id}")
+    public ResponseEntity<CommentResponse> updateComment(
+        @PathVariable Long id,
+        @Valid @RequestBody CreateCommentRequest request,
+        Authentication auth
+    ) {
+        return ResponseEntity.ok(commentService.updateComment(id, request.getContent(), auth.getName()));
+    }
 }

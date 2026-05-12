@@ -10,6 +10,10 @@ import { useAuth } from '../context/AuthContext'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { AssigneeSelect } from '../components/common/AssigneeSelect'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
+import { Pagination } from '../components/common/Pagination'
+import { timeAgo } from '../utils/timeAgo'
+
+const STORY_PAGE_SIZE = 10
 
 function initials(name?: string | null) {
   return (name?.[0] ?? '?').toUpperCase()
@@ -48,6 +52,11 @@ export function ProjectDetailPage() {
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
   const [comment, setComment] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
+  const [storySearch, setStorySearch] = useState('')
+  const [storyStatusFilter, setStoryStatusFilter] = useState('')
+  const [storyPage, setStoryPage] = useState(0)
   const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
   const { data: project, isLoading: projectLoading } = useQuery({
@@ -119,6 +128,35 @@ export function ProjectDetailPage() {
     },
   })
 
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: number) => commentsApi.deleteComment(commentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', 'project', projectId] }),
+  })
+
+  const updateCommentMutation = useMutation({
+    mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
+      commentsApi.updateComment(commentId, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', 'project', projectId] })
+      setEditingCommentId(null)
+    },
+  })
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: (attachmentId: number) => attachmentsApi.deleteAttachment(attachmentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attachments', 'project', projectId] }),
+  })
+
+  const addMemberMutation = useMutation({
+    mutationFn: (userId: number) => projectsApi.addMember(projectId, userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+  })
+
+  const removeMemberMutation = useMutation({
+    mutationFn: (userId: number) => projectsApi.removeMember(projectId, userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['project', projectId] }),
+  })
+
   function startEditing() {
     setEditName(project!.name)
     setEditDesc(project!.description ?? '')
@@ -127,6 +165,15 @@ export function ProjectDetailPage() {
 
   if (projectLoading) return <LoadingSpinner />
   if (!project) return null
+
+  const filteredStories = stories?.filter((s) => {
+    const q = storySearch.toLowerCase()
+    if (q && !s.title.toLowerCase().includes(q)) return false
+    if (storyStatusFilter && s.status !== storyStatusFilter) return false
+    return true
+  }) ?? []
+  const storyTotalPages = Math.ceil(filteredStories.length / STORY_PAGE_SIZE)
+  const pagedStories = filteredStories.slice(storyPage * STORY_PAGE_SIZE, (storyPage + 1) * STORY_PAGE_SIZE)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] h-full bg-[#F8F8F6]">
@@ -137,7 +184,8 @@ export function ProjectDetailPage() {
         <div className="px-8 pt-7 pb-3 flex-shrink-0">
           <div className="text-sm text-gray-400 mb-4">
             <Link to="/my-projects" className="hover:text-blue-600">My Projects</Link>
-            {' › '}
+            {' / '}
+            <span className="text-gray-900 font-semibold text-xs">{project.name}</span>
           </div>
 
           {editingMeta ? (
@@ -190,7 +238,7 @@ export function ProjectDetailPage() {
             <div className="flex items-center gap-2.5 py-1 text-sm text-gray-500">
               <span className="w-5 h-5 rounded-full bg-blue-500 text-white inline-flex items-center justify-center text-[11px] flex-shrink-0">●</span>
               <span className="flex-1"><b className="text-gray-700">{project.createdBy.username}</b> created this project</span>
-              <span className="text-[11px] text-gray-400">{new Date(project.createdAt).toLocaleDateString()}</span>
+              <span className="text-[11px] text-gray-400">{timeAgo(project.createdAt)}</span>
             </div>
           )}
           {project.assignee && (
@@ -205,16 +253,41 @@ export function ProjectDetailPage() {
         <div className="mx-8 flex-shrink-0 h-52 overflow-y-auto border border-gray-200 rounded-xl bg-white p-3">
           <div className="space-y-3">
             {comments?.map((c) => (
-              <div key={c.id} className="flex gap-2.5 py-1.5">
+              <div key={c.id} className="group flex gap-2.5 py-1.5">
                 <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
                   {initials(c.user.username)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm font-semibold text-gray-900">{c.user.username}</span>
-                    <span className="text-[11px] text-gray-400">{new Date(c.createdAt).toLocaleString()}</span>
+                    <span className="text-[11px] text-gray-400">{timeAgo(c.createdAt)}</span>
+                    {(c.user.username === user?.username || user?.role === 'ADMIN') && (
+                      <span className="ml-auto opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content) }} className="text-[11px] text-gray-400 hover:text-blue-600 px-1">Edit</button>
+                        <button onClick={() => deleteCommentMutation.mutate(c.id)} className="text-[11px] text-gray-400 hover:text-red-600 px-1">Delete</button>
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+                  {editingCommentId === c.id ? (
+                    <div className="mt-1">
+                      <textarea
+                        value={editCommentText}
+                        onChange={(e) => setEditCommentText(e.target.value)}
+                        rows={2}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex gap-2 mt-1">
+                        <button
+                          onClick={() => updateCommentMutation.mutate({ commentId: c.id, content: editCommentText })}
+                          disabled={!editCommentText || updateCommentMutation.isPending}
+                          className="bg-slate-900 text-white text-[11px] font-semibold px-3 py-1 rounded-md hover:bg-slate-800 disabled:opacity-50"
+                        >Save</button>
+                        <button onClick={() => setEditingCommentId(null)} className="text-[11px] text-gray-500 px-2 hover:text-gray-700">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -255,7 +328,7 @@ export function ProjectDetailPage() {
         <div className="flex-1 min-h-0 overflow-y-auto px-8 py-5 border-t border-gray-200">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Stories {stories && stories.length > 0 && <span className="ml-1 normal-case font-normal tracking-normal text-gray-400">{stories.length}</span>}
+              Stories {stories && stories.length > 0 && <span className="ml-1 normal-case font-normal tracking-normal text-gray-400">{filteredStories.length !== stories.length ? `${filteredStories.length}/` : ''}{stories.length}</span>}
             </h2>
             {canCreate && (
               <button
@@ -265,6 +338,28 @@ export function ProjectDetailPage() {
                 + New Story
               </button>
             )}
+          </div>
+
+          {/* Search & filter bar */}
+          <div className="flex gap-2 mb-3">
+            <input
+              value={storySearch}
+              onChange={(e) => { setStorySearch(e.target.value); setStoryPage(0) }}
+              placeholder="Search stories…"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-gray-400"
+            />
+            <select
+              value={storyStatusFilter}
+              onChange={(e) => { setStoryStatusFilter(e.target.value); setStoryPage(0) }}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">All statuses</option>
+              <option value="TODO">To Do</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="IN_REVIEW">In Review</option>
+              <option value="DONE">Done</option>
+              <option value="BLOCKED">Blocked</option>
+            </select>
           </div>
 
           {showForm && (
@@ -311,25 +406,38 @@ export function ProjectDetailPage() {
           {storiesLoading && <LoadingSpinner />}
 
           <div className="space-y-2">
-            {stories?.map((story) => (
-              <Link
-                key={story.id}
-                to={`/stories/${story.id}`}
-                className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-5 py-4 hover:shadow-md transition-shadow"
-              >
-                <div>
+            {pagedStories.map((story) => (
+              <div key={story.id} className="group relative flex items-center justify-between bg-white border border-gray-200 rounded-xl px-5 py-4 hover:shadow-md transition-shadow">
+                <Link to={`/stories/${story.id}`} className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 text-sm">{story.title}</p>
                   {story.assignee && (
                     <p className="text-xs text-gray-400 mt-0.5">Assigned to {story.assignee.username}</p>
                   )}
+                </Link>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                  <StatusBadge status={story.status} />
+                  {canCreate && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); if (confirm('Delete this story and all its tasks?')) storiesApi.deleteStory(story.id).then(() => queryClient.invalidateQueries({ queryKey: ['stories', projectId] })) }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50"
+                      title="Delete story"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3h4v1M5 4l1 9h4l1-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                  )}
                 </div>
-                <StatusBadge status={story.status} />
-              </Link>
+              </div>
             ))}
             {stories?.length === 0 && !storiesLoading && (
-              <div className="text-center py-8 text-gray-400 text-sm">No stories in this project yet.</div>
+              <div className="text-center py-8 text-gray-400 text-sm">
+                No stories yet.{canCreate && <span> Click <b>+ New Story</b> to create the first one.</span>}
+              </div>
+            )}
+            {stories && stories.length > 0 && filteredStories.length === 0 && (
+              <div className="text-center py-6 text-gray-400 text-sm">No stories match the current filters.</div>
             )}
           </div>
+          <Pagination page={storyPage} totalPages={storyTotalPages} onPageChange={setStoryPage} />
         </div>
       </section>
 
@@ -369,13 +477,57 @@ export function ProjectDetailPage() {
           </Row>
         )}
 
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mt-6 mb-2.5">Members</h2>
+        <div className="space-y-1.5 mb-2">
+          {project.members?.map((m) => (
+            <div key={m.id} className="group flex items-center justify-between py-1">
+              <AvatarChip name={m.username} />
+              {canCreate && m.id !== project.createdBy?.id && (
+                <button
+                  onClick={() => { if (confirm(`Remove ${m.username} from this project?`)) removeMemberMutation.mutate(m.id) }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-[11px] text-gray-400 hover:text-red-600 px-1"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+          {(!project.members || project.members.length === 0) && (
+            <p className="text-xs text-gray-400 italic">No members yet.</p>
+          )}
+        </div>
+        {canCreate && assignableUsers && (
+          <div className="flex items-center gap-2 mt-2">
+            <select
+              className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              defaultValue=""
+              onChange={(e) => {
+                const val = Number(e.target.value)
+                if (val) { addMemberMutation.mutate(val); e.target.value = '' }
+              }}
+            >
+              <option value="">+ Add member…</option>
+              {assignableUsers
+                .filter((u) => !project.members?.some((m) => m.id === u.id))
+                .map((u) => (
+                  <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                ))}
+            </select>
+          </div>
+        )}
+
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mt-6 mb-2.5">Attachments</h2>
         {attachments?.map((a) => (
-          <div key={a.id} className="flex items-center justify-between py-2 text-xs text-gray-700 border-b border-dashed border-gray-200 last:border-b-0">
+          <div key={a.id} className="group flex items-center justify-between py-2 text-xs text-gray-700 border-b border-dashed border-gray-200 last:border-b-0">
             <span className="truncate">📎 {a.fileName}</span>
-            <a href={attachmentsApi.downloadUrl(a.id)} download className="text-blue-600 hover:underline text-[11px] flex-shrink-0 ml-2">
-              Download
-            </a>
+            <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+              <a href={attachmentsApi.downloadUrl(a.id)} download className="text-blue-600 hover:underline text-[11px]">Download</a>
+              {(a.uploadedBy.username === user?.username || user?.role === 'ADMIN') && (
+                <button onClick={() => { if (confirm('Delete this attachment?')) deleteAttachmentMutation.mutate(a.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-0.5 rounded">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3h4v1M5 4l1 9h4l1-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              )}
+            </div>
           </div>
         ))}
         {attachments?.length === 0 && <p className="text-xs text-gray-400 italic">None yet.</p>}

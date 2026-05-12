@@ -1,7 +1,10 @@
 import { useState, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 import { ChangePasswordDialog } from '../common/ChangePasswordDialog'
+import { notificationsApi } from '../../api/notifications.api'
+import { timeAgo } from '../../utils/timeAgo'
 import clsx from 'clsx'
 
 const navItems = [
@@ -15,9 +18,28 @@ const adminItems = [{ to: '/admin', label: 'Users' }]
 export function Sidebar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const { data: notifications } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: notificationsApi.getMy,
+    refetchInterval: 30000,
+  })
+  const unreadCount = notifications?.filter((n) => !n.read).length ?? 0
+
+  const markReadMutation = useMutation({
+    mutationFn: notificationsApi.markRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  })
+
+  const markAllMutation = useMutation({
+    mutationFn: notificationsApi.markAllRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  })
 
   function openDropdown() {
     if (hideTimer.current) clearTimeout(hideTimer.current)
@@ -42,7 +64,58 @@ export function Sidebar() {
         </svg>
         <span className="text-lg font-bold tracking-tight text-white">Orchestro</span>
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      {/* Notification bell */}
+      <div className="px-3 pt-3 pb-1">
+        <div className="relative">
+          <button
+            onClick={() => setNotifOpen(!notifOpen)}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            <span className="relative">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-9.33-4.982M9 17H4l1.405-1.405A2.032 2.032 0 006 14.158V11a6 6 0 016-6 6 6 0 016 6v3.159" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </span>
+            Notifications
+          </button>
+          {notifOpen && (
+            <div className="absolute left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-72 overflow-y-auto">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-700">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Notifications</span>
+                {unreadCount > 0 && (
+                  <button onClick={() => markAllMutation.mutate()} className="text-[10px] text-blue-400 hover:text-blue-300">
+                    Mark all read
+                  </button>
+                )}
+              </div>
+              {notifications?.length === 0 && (
+                <p className="text-xs text-gray-500 italic px-3 py-3">No notifications yet.</p>
+              )}
+              {notifications?.map((n) => (
+                <div
+                  key={n.id}
+                  onClick={() => { if (!n.read) markReadMutation.mutate(n.id) }}
+                  className={`px-3 py-2.5 border-b border-slate-700/50 last:border-0 cursor-pointer hover:bg-slate-700/40 transition-colors ${n.read ? 'opacity-60' : ''}`}
+                >
+                  <div className="flex items-start gap-2">
+                    {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />}
+                    <div className={!n.read ? '' : 'ml-3.5'}>
+                      <p className="text-xs text-gray-200 leading-snug">{n.message}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{timeAgo(n.createdAt)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <nav className="flex-1 px-3 py-2 space-y-1">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

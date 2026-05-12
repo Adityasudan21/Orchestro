@@ -11,5 +11,6 @@ public class CreateProjectRequest {
     private String name;
     private String description;
     private Long assigneeId;
+    private Long reporterId;
     private Set<Long> memberIds;
 }

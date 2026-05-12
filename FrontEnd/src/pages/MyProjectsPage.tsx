@@ -6,6 +6,7 @@ import { usersApi } from '../api/users.api'
 import { useAuth } from '../context/AuthContext'
 import { AssigneeSelect } from '../components/common/AssigneeSelect'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
+import { timeAgo } from '../utils/timeAgo'
 
 export function MyProjectsPage() {
   const { user } = useAuth()
@@ -14,6 +15,8 @@ export function MyProjectsPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [assigneeId, setAssigneeId] = useState<number | null>(null)
+  const [reporterId, setReporterId] = useState<number | null>(null)
+  const [search, setSearch] = useState('')
 
   const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER'
 
@@ -29,7 +32,12 @@ export function MyProjectsPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: () => projectsApi.create({ name, description, assigneeId: assigneeId ?? undefined }),
+    mutationFn: () => projectsApi.create({
+      name,
+      description,
+      assigneeId: assigneeId ?? undefined,
+      reporterId: reporterId ?? undefined,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-projects'] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -37,6 +45,7 @@ export function MyProjectsPage() {
       setName('')
       setDescription('')
       setAssigneeId(null)
+      setReporterId(null)
     },
   })
 
@@ -75,13 +84,23 @@ export function MyProjectsPage() {
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
           {assignableUsers && (
-            <div className="mb-3">
-              <p className="text-xs font-medium text-gray-500 mb-1.5">Assignee</p>
-              <AssigneeSelect
-                value={assigneeId}
-                options={assignableUsers.map((u) => ({ id: u.id, username: u.username, role: u.role }))}
-                onChange={(id) => setAssigneeId(id)}
-              />
+            <div className="flex gap-4 mb-3">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-gray-500 mb-1.5">Assignee</p>
+                <AssigneeSelect
+                  value={assigneeId}
+                  options={assignableUsers.map((u) => ({ id: u.id, username: u.username, role: u.role }))}
+                  onChange={(id) => setAssigneeId(id)}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-gray-500 mb-1.5">Reporter</p>
+                <AssigneeSelect
+                  value={reporterId}
+                  options={assignableUsers.map((u) => ({ id: u.id, username: u.username, role: u.role }))}
+                  onChange={(id) => setReporterId(id)}
+                />
+              </div>
             </div>
           )}
           <div className="flex gap-2 mt-1">
@@ -93,7 +112,7 @@ export function MyProjectsPage() {
               Create
             </button>
             <button
-              onClick={() => { setShowForm(false); setAssigneeId(null) }}
+              onClick={() => { setShowForm(false); setAssigneeId(null); setReporterId(null) }}
               className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
             >
               Cancel
@@ -102,10 +121,19 @@ export function MyProjectsPage() {
         </div>
       )}
 
+      <div className="mb-5">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search projects…"
+          className="w-full max-w-sm border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+        />
+      </div>
+
       {isLoading && <LoadingSpinner />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {projects?.map((project) => (
+        {projects?.filter((p) => p.name.toLowerCase().includes(search.toLowerCase())).map((project) => (
           <Link
             key={project.id}
             to={`/projects/${project.id}`}
@@ -115,15 +143,18 @@ export function MyProjectsPage() {
             {project.description && (
               <p className="text-sm text-gray-500 line-clamp-2 mb-3">{project.description}</p>
             )}
-            <div className="flex items-center justify-end text-xs text-gray-400">
-              <span>{new Date(project.createdAt).toLocaleDateString()}</span>
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              {project.assignee && <span>Assigned to {project.assignee.username}</span>}
+              <span className="ml-auto">{timeAgo(project.createdAt)}</span>
             </div>
           </Link>
         ))}
       </div>
 
       {projects?.length === 0 && !isLoading && (
-        <div className="text-center py-16 text-gray-400">No projects assigned to you yet.</div>
+        <div className="text-center py-16 text-gray-400">
+          No projects assigned to you yet.{canCreate && <span> Click <b>+ New Project</b> to create one.</span>}
+        </div>
       )}
     </div>
   )

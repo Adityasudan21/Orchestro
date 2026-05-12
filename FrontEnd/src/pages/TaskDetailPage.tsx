@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tasksApi } from '../api/tasks.api'
 import { commentsApi } from '../api/comments.api'
 import { attachmentsApi } from '../api/attachments.api'
 import { usersApi } from '../api/users.api'
+import { activityApi } from '../api/activity.api'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { AssigneeSelect } from '../components/common/AssigneeSelect'
 import { StatusSelect } from '../components/common/StatusSelect'
 import { useAuth } from '../context/AuthContext'
 import { statusLabel, typeColors } from '../utils/statusColors'
+import { timeAgo } from '../utils/timeAgo'
 import type { TicketStatus, TaskType } from '../types'
 
 const TYPES: TaskType[] = ['DEV', 'DOC', 'BUG']
@@ -80,11 +82,14 @@ export function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
   const taskId = Number(id)
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { user: me } = useAuth()
   const [comment, setComment] = useState('')
   const [editingMeta, setEditingMeta] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editDesc, setEditDesc] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
   const canAssign = me?.role === 'ADMIN' || me?.role === 'MANAGER'
 
   const { data: task, isLoading } = useQuery({
@@ -102,10 +107,16 @@ export function TaskDetailPage() {
     queryFn: () => attachmentsApi.getByTask(taskId),
   })
 
+  const { data: activityLogs } = useQuery({
+    queryKey: ['activity', 'task', taskId],
+    queryFn: () => activityApi.getForTask(taskId),
+  })
+
   const statusMutation = useMutation({
     mutationFn: (status: TicketStatus) => tasksApi.updateStatus(taskId, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+      queryClient.invalidateQueries({ queryKey: ['activity', 'task', taskId] })
       // Invalidate parent story so its status reflects any backend revert to IN_PROGRESS.
       if (task) queryClient.invalidateQueries({ queryKey: ['story', task.storyId] })
     },
@@ -132,7 +143,10 @@ export function TaskDetailPage() {
 
   const assignMutation = useMutation({
     mutationFn: (assigneeId: number) => tasksApi.assign(taskId, assigneeId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task', taskId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+      queryClient.invalidateQueries({ queryKey: ['activity', 'task', taskId] })
+    },
   })
 
   const reporterMutation = useMutation({
@@ -153,6 +167,30 @@ export function TaskDetailPage() {
     },
   })
 
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: number) => commentsApi.deleteComment(commentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', 'task', taskId] }),
+  })
+
+  const updateCommentMutation = useMutation({
+    mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
+      commentsApi.updateComment(commentId, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', 'task', taskId] })
+      setEditingCommentId(null)
+    },
+  })
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: (attachmentId: number) => attachmentsApi.deleteAttachment(attachmentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attachments', 'task', taskId] }),
+  })
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: () => tasksApi.deleteTask(taskId),
+    onSuccess: () => task && navigate(`/stories/${task.storyId}`),
+  })
+
   function startEditing() {
     setEditTitle(task!.title)
     setEditDesc(task!.description ?? '')
@@ -170,7 +208,7 @@ export function TaskDetailPage() {
         <div className="text-sm text-gray-400 mb-4">
           <Link to="/my-projects" className="hover:text-blue-600">My Projects</Link>
           {' / '}
-          <Link to={`/projects/${task.projectId}`} className="hover:text-blue-600">Project #{task.projectId}</Link>
+          <Link to={`/projects/${task.projectId}`} className="hover:text-blue-600">{task.projectName}</Link>
           {' / '}
           <Link to={`/stories/${task.storyId}`} className="hover:text-blue-600">{task.storyTitle}</Link>
           {' / '}
@@ -187,7 +225,7 @@ export function TaskDetailPage() {
             {statusLabel[task.status]}
           </span>
           <span className="text-gray-400">·</span>
-          <span className="text-gray-500">Created {new Date(task.createdAt).toLocaleString()}</span>
+          <span className="text-gray-500">Created {timeAgo(task.createdAt)}</span>
         </div>
 
         {editingMeta ? (
@@ -246,7 +284,7 @@ export function TaskDetailPage() {
           <div className="flex items-center gap-2.5 py-1.5 text-sm text-gray-500">
             <span className="w-5 h-5 rounded-full bg-blue-500 text-white inline-flex items-center justify-center text-[11px]">●</span>
             <span className="flex-1"><b className="text-gray-700">{task.reporter.username}</b> created this task</span>
-            <span className="text-[11px] text-gray-400">{new Date(task.createdAt).toLocaleDateString()}</span>
+            <span className="text-[11px] text-gray-400">{timeAgo(task.createdAt)}</span>
           </div>
         )}
         {task.assignee && (
@@ -256,18 +294,58 @@ export function TaskDetailPage() {
           </div>
         )}
 
+        {activityLogs && activityLogs.length > 0 && (
+          <div className="mt-2 space-y-1.5 border-l-2 border-gray-100 ml-2.5 pl-3">
+            {activityLogs.map((log) => (
+              <div key={log.id} className="flex items-start gap-2 text-xs text-gray-500">
+                <span className="text-gray-400 flex-shrink-0">{timeAgo(log.createdAt)}</span>
+                <span>
+                  {log.actorUsername && <b className="text-gray-700">{log.actorUsername}</b>}
+                  {' '}{log.action === 'STATUS_CHANGED' ? 'changed status:' : log.action === 'ASSIGNED' ? 'reassigned:' : log.action.toLowerCase() + ':'}
+                  {' '}<span className="text-gray-600">{log.detail}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-3 mt-4 max-h-72 overflow-y-auto pr-1">
           {comments?.map((c) => (
-            <div key={c.id} className="flex gap-2.5 py-2">
+            <div key={c.id} className="group flex gap-2.5 py-2">
               <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
                 {initials(c.user.username)}
               </div>
               <div className="flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className="text-sm font-semibold text-gray-900">{c.user.username}</span>
-                  <span className="text-[11px] text-gray-400">{new Date(c.createdAt).toLocaleString()}</span>
+                  <span className="text-[11px] text-gray-400">{timeAgo(c.createdAt)}</span>
+                  {(c.user.username === me?.username || me?.role === 'ADMIN') && (
+                    <span className="ml-auto opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                      <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content) }} className="text-[11px] text-gray-400 hover:text-blue-600 px-1">Edit</button>
+                      <button onClick={() => deleteCommentMutation.mutate(c.id)} className="text-[11px] text-gray-400 hover:text-red-600 px-1">Delete</button>
+                    </span>
+                  )}
                 </div>
-                <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+                {editingCommentId === c.id ? (
+                  <div className="mt-1">
+                    <textarea
+                      value={editCommentText}
+                      onChange={(e) => setEditCommentText(e.target.value)}
+                      rows={2}
+                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="flex gap-2 mt-1">
+                      <button
+                        onClick={() => updateCommentMutation.mutate({ commentId: c.id, content: editCommentText })}
+                        disabled={!editCommentText || updateCommentMutation.isPending}
+                        className="bg-slate-900 text-white text-[11px] font-semibold px-3 py-1 rounded-md hover:bg-slate-800 disabled:opacity-50"
+                      >Save</button>
+                      <button onClick={() => setEditingCommentId(null)} className="text-[11px] text-gray-500 px-2 hover:text-gray-700">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+                )}
               </div>
             </div>
           ))}
@@ -373,15 +451,16 @@ export function TaskDetailPage() {
 
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mt-6 mb-2.5">Attachments</h2>
         {attachments?.map((a) => (
-          <div key={a.id} className="flex items-center justify-between py-2 text-xs text-gray-700 border-b border-dashed border-gray-200 last:border-b-0">
+          <div key={a.id} className="group flex items-center justify-between py-2 text-xs text-gray-700 border-b border-dashed border-gray-200 last:border-b-0">
             <span className="truncate">📎 {a.fileName}</span>
-            <a
-              href={attachmentsApi.downloadUrl(a.id)}
-              download
-              className="text-blue-600 hover:underline text-[11px] flex-shrink-0 ml-2"
-            >
-              Download
-            </a>
+            <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+              <a href={attachmentsApi.downloadUrl(a.id)} download className="text-blue-600 hover:underline text-[11px]">Download</a>
+              {(a.uploadedBy.username === me?.username || me?.role === 'ADMIN') && (
+                <button onClick={() => { if (confirm('Delete this attachment?')) deleteAttachmentMutation.mutate(a.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-0.5 rounded">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3h4v1M5 4l1 9h4l1-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              )}
+            </div>
           </div>
         ))}
         {attachments?.length === 0 && (
@@ -403,6 +482,18 @@ export function TaskDetailPage() {
           <p className="mt-6 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md p-2.5 leading-relaxed">
             AI integration coming soon — this task will be processed by the AI agent.
           </p>
+        )}
+
+        {canAssign && (
+          <div className="mt-8 pt-5 border-t border-gray-200">
+            <button
+              onClick={() => { if (confirm('Delete this task? This cannot be undone.')) deleteTaskMutation.mutate() }}
+              disabled={deleteTaskMutation.isPending}
+              className="w-full text-xs text-red-600 border border-red-200 rounded-lg py-2 hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              {deleteTaskMutation.isPending ? 'Deleting…' : 'Delete Task'}
+            </button>
+          </div>
         )}
       </aside>
     </div>

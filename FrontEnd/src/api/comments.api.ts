@@ -14,4 +14,7 @@ export const commentsApi = {
     api.post<Comment>(`/stories/${storyId}/comments`, { content }).then((r) => r.data),
   addToProject: (projectId: number, content: string) =>
     api.post<Comment>(`/projects/${projectId}/comments`, { content }).then((r) => r.data),
+  deleteComment: (id: number) => api.delete(`/comments/${id}`).then(() => {}),
+  updateComment: (id: number, content: string) =>
+    api.patch<Comment>(`/comments/${id}`, { content }).then((r) => r.data),
 }

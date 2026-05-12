@@ -1,9 +1,13 @@
 import api from './axios'
-import type { Task, CreateTaskPayload, UpdateStatusPayload } from '../types'
+import type { Task, CreateTaskPayload, UpdateStatusPayload, PagedResponse } from '../types'
 
 export const tasksApi = {
   getByStory: (storyId: number) =>
     api.get<Task[]>(`/stories/${storyId}/tasks`).then((r) => r.data),
+  getByStoryPaged: (storyId: number, page: number, size = 10) =>
+    api
+      .get<PagedResponse<Task>>(`/stories/${storyId}/tasks/paged`, { params: { page, size } })
+      .then((r) => r.data),
   getById: (id: number) => api.get<Task>(`/tasks/${id}`).then((r) => r.data),
   getMy: () => api.get<Task[]>('/tasks/my').then((r) => r.data),
   create: (storyId: number, payload: CreateTaskPayload) =>
@@ -18,4 +22,5 @@ export const tasksApi = {
     api.patch<Task>(`/tasks/${id}/assignee`, { assigneeId }).then((r) => r.data),
   assignReporter: (id: number, assigneeId: number) =>
     api.patch<Task>(`/tasks/${id}/reporter`, { assigneeId }).then((r) => r.data),
+  deleteTask: (id: number) => api.delete(`/tasks/${id}`).then(() => {}),
 }

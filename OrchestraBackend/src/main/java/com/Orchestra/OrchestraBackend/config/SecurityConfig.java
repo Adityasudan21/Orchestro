@@ -30,6 +30,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.GET, "/api/attachments/*/download").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/users/assignable").hasAnyRole("ADMIN", "MANAGER")
                 .requestMatchers("/api/users/me/**").authenticated()

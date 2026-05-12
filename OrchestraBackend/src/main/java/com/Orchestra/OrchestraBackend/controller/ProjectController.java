@@ -79,4 +79,16 @@ public class ProjectController {
         projectService.deleteProject(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/members/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ProjectResponse> addMember(@PathVariable Long id, @PathVariable Long userId) {
+        return ResponseEntity.ok(projectService.addMember(id, userId));
+    }
+
+    @DeleteMapping("/{id}/members/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ProjectResponse> removeMember(@PathVariable Long id, @PathVariable Long userId) {
+        return ResponseEntity.ok(projectService.removeMember(id, userId));
+    }
 }

@@ -3,6 +3,7 @@ package com.Orchestra.OrchestraBackend.controller;
 import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateStoryRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
+import com.Orchestra.OrchestraBackend.dto.response.PagedResponse;
 import com.Orchestra.OrchestraBackend.dto.response.StoryResponse;
 import com.Orchestra.OrchestraBackend.dto.response.TaskResponse;
 import com.Orchestra.OrchestraBackend.service.StoryService;
@@ -25,6 +26,15 @@ public class StoryController {
     @GetMapping("/api/projects/{projectId}/stories")
     public ResponseEntity<List<StoryResponse>> getStoriesByProject(@PathVariable Long projectId) {
         return ResponseEntity.ok(storyService.getStoriesByProject(projectId));
+    }
+
+    @GetMapping("/api/projects/{projectId}/stories/paged")
+    public ResponseEntity<PagedResponse<StoryResponse>> getStoriesByProjectPaged(
+        @PathVariable Long projectId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(storyService.getStoriesByProjectPaged(projectId, page, size));
     }
 
     @PostMapping("/api/projects/{projectId}/stories")
@@ -80,5 +90,12 @@ public class StoryController {
         @Valid @RequestBody AssignRequest request
     ) {
         return ResponseEntity.ok(storyService.assignReporter(id, request));
+    }
+
+    @DeleteMapping("/api/stories/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<Void> deleteStory(@PathVariable Long id) {
+        storyService.deleteStory(id);
+        return ResponseEntity.noContent().build();
     }
 }

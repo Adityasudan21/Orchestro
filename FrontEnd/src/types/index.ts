@@ -48,6 +48,7 @@ export interface Task {
   storyId: number
   storyTitle: string
   projectId: number
+  projectName: string
   title: string
   description: string | null
   type: TaskType
@@ -83,6 +84,7 @@ export interface CreateProjectPayload {
   name: string
   description?: string
   assigneeId?: number
+  reporterId?: number
   memberIds?: number[]
 }
 
@@ -107,4 +109,32 @@ export interface CreateTaskPayload {
 
 export interface UpdateStatusPayload {
   status: TicketStatus
+}
+
+export interface ActivityLog {
+  id: number
+  entityType: string
+  entityId: number
+  actorUsername: string | null
+  action: string
+  detail: string | null
+  createdAt: string
+}
+
+export interface Notification {
+  id: number
+  message: string
+  read: boolean
+  entityType: string | null
+  entityId: number | null
+  createdAt: string
+}
+
+export interface PagedResponse<T> {
+  content: T[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  last: boolean
 }

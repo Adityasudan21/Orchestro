@@ -15,6 +15,7 @@ public class TaskResponse {
     private Long storyId;
     private String storyTitle;
     private Long projectId;
+    private String projectName;
     private String title;
     private String description;
     private TaskType type;
@@ -32,6 +33,7 @@ public class TaskResponse {
             .storyId(task.getStory().getId())
             .storyTitle(task.getStory().getTitle())
             .projectId(task.getStory().getProject().getId())
+            .projectName(task.getStory().getProject().getName())
             .title(task.getTitle())
             .description(task.getDescription())
             .type(task.getType())

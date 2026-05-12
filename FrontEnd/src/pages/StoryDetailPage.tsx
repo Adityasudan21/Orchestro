@@ -1,20 +1,24 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { storiesApi } from '../api/stories.api'
 import { tasksApi } from '../api/tasks.api'
 import { commentsApi } from '../api/comments.api'
 import { attachmentsApi } from '../api/attachments.api'
 import { usersApi } from '../api/users.api'
+import { activityApi } from '../api/activity.api'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { StatusSelect } from '../components/common/StatusSelect'
 import { TypeBadge } from '../components/common/TypeBadge'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { AssigneeSelect } from '../components/common/AssigneeSelect'
+import { Pagination } from '../components/common/Pagination'
 import { useAuth } from '../context/AuthContext'
 import type { TaskType, TicketStatus } from '../types'
+import { timeAgo } from '../utils/timeAgo'
 
 const TASK_TYPES: TaskType[] = ['DEV', 'DOC', 'BUG']
+const TASK_PAGE_SIZE = 10
 
 function initials(name?: string | null) {
   return (name?.[0] ?? '?').toUpperCase()
@@ -44,6 +48,7 @@ export function StoryDetailPage() {
   const { id } = useParams<{ id: string }>()
   const storyId = Number(id)
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { user: me } = useAuth()
   const [comment, setComment] = useState('')
   const [showForm, setShowForm] = useState(false)
@@ -53,7 +58,13 @@ export function StoryDetailPage() {
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<number | undefined>()
   const [editingMeta, setEditingMeta] = useState(false)
   const [editTitle, setEditTitle] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null)
+  const [editCommentText, setEditCommentText] = useState('')
   const [editDesc, setEditDesc] = useState('')
+  const [taskSearch, setTaskSearch] = useState('')
+  const [taskTypeFilter, setTaskTypeFilter] = useState<TaskType | ''>('')
+  const [taskStatusFilter, setTaskStatusFilter] = useState<TicketStatus | ''>('')
+  const [taskPage, setTaskPage] = useState(0)
   const canAssign = me?.role === 'ADMIN' || me?.role === 'MANAGER'
 
   const { data: story, isLoading } = useQuery({
@@ -76,6 +87,11 @@ export function StoryDetailPage() {
     queryFn: () => attachmentsApi.getByStory(storyId),
   })
 
+  const { data: activityLogs } = useQuery({
+    queryKey: ['activity', 'story', storyId],
+    queryFn: () => activityApi.getForStory(storyId),
+  })
+
   const { data: assignableUsers } = useQuery({
     queryKey: ['users', 'assignable'],
     queryFn: usersApi.getAssignable,
@@ -84,7 +100,10 @@ export function StoryDetailPage() {
 
   const assignMutation = useMutation({
     mutationFn: (assigneeId: number) => storiesApi.assign(storyId, assigneeId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['story', storyId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['story', storyId] })
+      queryClient.invalidateQueries({ queryKey: ['activity', 'story', storyId] })
+    },
   })
 
   const reporterMutation = useMutation({
@@ -102,7 +121,10 @@ export function StoryDetailPage() {
 
   const statusMutation = useMutation({
     mutationFn: (status: TicketStatus) => storiesApi.updateStatus(storyId, { status }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['story', storyId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['story', storyId] })
+      queryClient.invalidateQueries({ queryKey: ['activity', 'story', storyId] })
+    },
   })
 
   const commentMutation = useMutation({
@@ -131,6 +153,38 @@ export function StoryDetailPage() {
     },
   })
 
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: number) => commentsApi.deleteComment(commentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', 'story', storyId] }),
+  })
+
+  const updateCommentMutation = useMutation({
+    mutationFn: ({ commentId, content }: { commentId: number; content: string }) =>
+      commentsApi.updateComment(commentId, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', 'story', storyId] })
+      setEditingCommentId(null)
+    },
+  })
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: (attachmentId: number) => attachmentsApi.deleteAttachment(attachmentId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attachments', 'story', storyId] }),
+  })
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: (taskId: number) => tasksApi.deleteTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', storyId] })
+      queryClient.invalidateQueries({ queryKey: ['story', storyId] })
+    },
+  })
+
+  const deleteStoryMutation = useMutation({
+    mutationFn: () => storiesApi.deleteStory(storyId),
+    onSuccess: () => navigate(`/projects/${story?.projectId}`),
+  })
+
   function startEditing() {
     setEditTitle(story!.title)
     setEditDesc(story!.description ?? '')
@@ -141,6 +195,16 @@ export function StoryDetailPage() {
   if (!story) return null
 
   const allTasksDone = (tasks?.length ?? 0) > 0 && tasks!.every(t => t.status === 'DONE')
+
+  const filteredTasks = tasks?.filter((t) => {
+    const q = taskSearch.toLowerCase()
+    if (q && !t.title.toLowerCase().includes(q)) return false
+    if (taskTypeFilter && t.type !== taskTypeFilter) return false
+    if (taskStatusFilter && t.status !== taskStatusFilter) return false
+    return true
+  }) ?? []
+  const taskTotalPages = Math.ceil(filteredTasks.length / TASK_PAGE_SIZE)
+  const pagedTasks = filteredTasks.slice(taskPage * TASK_PAGE_SIZE, (taskPage + 1) * TASK_PAGE_SIZE)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] h-full bg-[#F8F8F6]">
@@ -209,7 +273,7 @@ export function StoryDetailPage() {
             <div className="flex items-center gap-2.5 py-1 text-sm text-gray-500">
               <span className="w-5 h-5 rounded-full bg-blue-500 text-white inline-flex items-center justify-center text-[11px] flex-shrink-0">●</span>
               <span className="flex-1"><b className="text-gray-700">{story.reporter.username}</b> created this story</span>
-              <span className="text-[11px] text-gray-400">{new Date(story.createdAt).toLocaleDateString()}</span>
+              <span className="text-[11px] text-gray-400">{timeAgo(story.createdAt)}</span>
             </div>
           )}
           {story.assignee && (
@@ -218,22 +282,61 @@ export function StoryDetailPage() {
               <span className="flex-1">assigned to <b className="text-gray-700">{story.assignee.username}</b></span>
             </div>
           )}
+          {activityLogs && activityLogs.length > 0 && (
+            <div className="mt-2 space-y-1.5 border-l-2 border-gray-100 ml-2.5 pl-3">
+              {activityLogs.map((log) => (
+                <div key={log.id} className="flex items-start gap-2 text-xs text-gray-500">
+                  <span className="text-gray-400 flex-shrink-0">{timeAgo(log.createdAt)}</span>
+                  <span>
+                    {log.actorUsername && <b className="text-gray-700">{log.actorUsername}</b>}
+                    {' '}{log.action === 'STATUS_CHANGED' ? 'changed status:' : log.action === 'ASSIGNED' ? 'reassigned:' : log.action.toLowerCase() + ':'}
+                    {' '}<span className="text-gray-600">{log.detail}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Zone 2 — Rigid comment section: fixed height, internally scrollable */}
         <div className="mx-8 flex-shrink-0 h-52 overflow-y-auto border border-gray-200 rounded-xl bg-white p-3">
           <div className="space-y-3">
             {comments?.map((c) => (
-              <div key={c.id} className="flex gap-2.5 py-1.5">
+              <div key={c.id} className="group flex gap-2.5 py-1.5">
                 <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
                   {initials(c.user.username)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm font-semibold text-gray-900">{c.user.username}</span>
-                    <span className="text-[11px] text-gray-400">{new Date(c.createdAt).toLocaleString()}</span>
+                    <span className="text-[11px] text-gray-400">{timeAgo(c.createdAt)}</span>
+                    {(c.user.username === me?.username || me?.role === 'ADMIN') && (
+                      <span className="ml-auto opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                        <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content) }} className="text-[11px] text-gray-400 hover:text-blue-600 px-1">Edit</button>
+                        <button onClick={() => deleteCommentMutation.mutate(c.id)} className="text-[11px] text-gray-400 hover:text-red-600 px-1">Delete</button>
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+                  {editingCommentId === c.id ? (
+                    <div className="mt-1">
+                      <textarea
+                        value={editCommentText}
+                        onChange={(e) => setEditCommentText(e.target.value)}
+                        rows={2}
+                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex gap-2 mt-1">
+                        <button
+                          onClick={() => updateCommentMutation.mutate({ commentId: c.id, content: editCommentText })}
+                          disabled={!editCommentText || updateCommentMutation.isPending}
+                          className="bg-slate-900 text-white text-[11px] font-semibold px-3 py-1 rounded-md hover:bg-slate-800 disabled:opacity-50"
+                        >Save</button>
+                        <button onClick={() => setEditingCommentId(null)} className="text-[11px] text-gray-500 px-2 hover:text-gray-700">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -274,7 +377,7 @@ export function StoryDetailPage() {
         <div className="flex-1 min-h-0 overflow-y-auto px-8 py-5 border-t border-gray-200">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Tasks {tasks && tasks.length > 0 && <span className="ml-1 normal-case font-normal tracking-normal text-gray-400">{tasks.length}</span>}
+              Tasks {tasks && tasks.length > 0 && <span className="ml-1 normal-case font-normal tracking-normal text-gray-400">{filteredTasks.length !== tasks.length ? `${filteredTasks.length}/` : ''}{tasks.length}</span>}
             </h2>
             <button
               onClick={() => setShowForm(!showForm)}
@@ -282,6 +385,36 @@ export function StoryDetailPage() {
             >
               + New Task
             </button>
+          </div>
+
+          {/* Search & filter bar */}
+          <div className="flex gap-2 mb-3">
+            <input
+              value={taskSearch}
+              onChange={(e) => { setTaskSearch(e.target.value); setTaskPage(0) }}
+              placeholder="Search tasks…"
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-gray-400"
+            />
+            <select
+              value={taskTypeFilter}
+              onChange={(e) => { setTaskTypeFilter(e.target.value as TaskType | ''); setTaskPage(0) }}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">All types</option>
+              {TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select
+              value={taskStatusFilter}
+              onChange={(e) => { setTaskStatusFilter(e.target.value as TicketStatus | ''); setTaskPage(0) }}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">All statuses</option>
+              <option value="TODO">To Do</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="IN_REVIEW">In Review</option>
+              <option value="DONE">Done</option>
+              <option value="BLOCKED">Blocked</option>
+            </select>
           </div>
 
           {showForm && (
@@ -341,13 +474,9 @@ export function StoryDetailPage() {
           {tasksLoading && <LoadingSpinner />}
 
           <div className="space-y-2">
-            {tasks?.map((task) => (
-              <Link
-                key={task.id}
-                to={`/tasks/${task.id}`}
-                className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 hover:shadow-md transition-shadow"
-              >
-                <div>
+            {pagedTasks.map((task) => (
+              <div key={task.id} className="group relative flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 hover:shadow-md transition-shadow">
+                <Link to={`/tasks/${task.id}`} className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <TypeBadge type={task.type} />
                     <span className="font-medium text-gray-900 text-sm">{task.title}</span>
@@ -355,14 +484,31 @@ export function StoryDetailPage() {
                   {task.assignee && (
                     <p className="text-xs text-gray-400">Assigned to {task.assignee.username}</p>
                   )}
+                </Link>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                  <StatusBadge status={task.status} />
+                  {canAssign && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); if (confirm('Delete this task?')) deleteTaskMutation.mutate(task.id) }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50"
+                      title="Delete task"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3h4v1M5 4l1 9h4l1-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                  )}
                 </div>
-                <StatusBadge status={task.status} />
-              </Link>
+              </div>
             ))}
             {tasks?.length === 0 && !tasksLoading && (
-              <div className="text-center py-8 text-gray-400 text-sm">No tasks yet.</div>
+              <div className="text-center py-8 text-gray-400 text-sm">
+                No tasks yet.{canAssign && <span> Click <b>+ New Task</b> to add one.</span>}
+              </div>
+            )}
+            {tasks && tasks.length > 0 && filteredTasks.length === 0 && (
+              <div className="text-center py-6 text-gray-400 text-sm">No tasks match the current filters.</div>
             )}
           </div>
+          <Pagination page={taskPage} totalPages={taskTotalPages} onPageChange={setTaskPage} />
         </div>
       </section>
 
@@ -430,11 +576,16 @@ export function StoryDetailPage() {
 
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mt-6 mb-2.5">Attachments</h2>
         {attachments?.map((a) => (
-          <div key={a.id} className="flex items-center justify-between py-2 text-xs text-gray-700 border-b border-dashed border-gray-200 last:border-b-0">
+          <div key={a.id} className="group flex items-center justify-between py-2 text-xs text-gray-700 border-b border-dashed border-gray-200 last:border-b-0">
             <span className="truncate">📎 {a.fileName}</span>
-            <a href={attachmentsApi.downloadUrl(a.id)} download className="text-blue-600 hover:underline text-[11px] flex-shrink-0 ml-2">
-              Download
-            </a>
+            <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+              <a href={attachmentsApi.downloadUrl(a.id)} download className="text-blue-600 hover:underline text-[11px]">Download</a>
+              {(a.uploadedBy.username === me?.username || me?.role === 'ADMIN') && (
+                <button onClick={() => { if (confirm('Delete this attachment?')) deleteAttachmentMutation.mutate(a.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-0.5 rounded">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3h4v1M5 4l1 9h4l1-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+              )}
+            </div>
           </div>
         ))}
         {attachments?.length === 0 && <p className="text-xs text-gray-400 italic">None yet.</p>}
@@ -442,6 +593,18 @@ export function StoryDetailPage() {
           + Upload file
           <input type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMutation.mutate(f) }} />
         </label>
+
+        {canAssign && (
+          <div className="mt-8 pt-5 border-t border-gray-200">
+            <button
+              onClick={() => { if (confirm('Delete this story and all its tasks? This cannot be undone.')) deleteStoryMutation.mutate() }}
+              disabled={deleteStoryMutation.isPending}
+              className="w-full text-xs text-red-600 border border-red-200 rounded-lg py-2 hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              {deleteStoryMutation.isPending ? 'Deleting…' : 'Delete Story'}
+            </button>
+          </div>
+        )}
       </aside>
     </div>
   )

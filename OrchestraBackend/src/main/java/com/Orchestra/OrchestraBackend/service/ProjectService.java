@@ -64,11 +64,16 @@ public class ProjectService {
             assignee = userRepository.findById(request.getAssigneeId()).orElse(null);
         }
 
+        User reporter = creator;
+        if (request.getReporterId() != null) {
+            reporter = userRepository.findById(request.getReporterId()).orElse(creator);
+        }
+
         Project project = Project.builder()
             .name(request.getName())
             .description(request.getDescription())
             .createdBy(creator)
-            .reporter(creator)
+            .reporter(reporter)
             .assignee(assignee)
             .members(members)
             .build();
@@ -107,5 +112,23 @@ public class ProjectService {
             throw new ResourceNotFoundException("Project not found: " + id);
         }
         projectRepository.deleteById(id);
+    }
+
+    public ProjectResponse addMember(Long projectId, Long userId) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found: " + projectId));
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        project.getMembers().add(user);
+        return ProjectResponse.from(projectRepository.save(project));
+    }
+
+    public ProjectResponse removeMember(Long projectId, Long userId) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new ResourceNotFoundException("Project not found: " + projectId));
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        project.getMembers().remove(user);
+        return ProjectResponse.from(projectRepository.save(project));
     }
 }

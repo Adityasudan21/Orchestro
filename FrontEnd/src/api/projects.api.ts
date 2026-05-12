@@ -14,4 +14,8 @@ export const projectsApi = {
   assignReporter: (id: number, assigneeId: number) =>
     api.patch<Project>(`/projects/${id}/reporter`, { assigneeId }).then((r) => r.data),
   delete: (id: number) => api.delete(`/projects/${id}`),
+  addMember: (id: number, userId: number) =>
+    api.post<Project>(`/projects/${id}/members/${userId}`).then((r) => r.data),
+  removeMember: (id: number, userId: number) =>
+    api.delete<Project>(`/projects/${id}/members/${userId}`).then((r) => r.data),
 }

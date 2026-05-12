@@ -4,6 +4,7 @@ import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.dto.request.CreateTaskRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateTypeRequest;
+import com.Orchestra.OrchestraBackend.dto.response.PagedResponse;
 import com.Orchestra.OrchestraBackend.dto.response.TaskResponse;
 import com.Orchestra.OrchestraBackend.service.TaskService;
 import jakarta.validation.Valid;
@@ -25,6 +26,15 @@ public class TaskController {
     @GetMapping("/api/stories/{storyId}/tasks")
     public ResponseEntity<List<TaskResponse>> getTasksByStory(@PathVariable Long storyId) {
         return ResponseEntity.ok(taskService.getTasksByStory(storyId));
+    }
+
+    @GetMapping("/api/stories/{storyId}/tasks/paged")
+    public ResponseEntity<PagedResponse<TaskResponse>> getTasksByStoryPaged(
+        @PathVariable Long storyId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(taskService.getTasksByStoryPaged(storyId, page, size));
     }
 
     @PostMapping("/api/stories/{storyId}/tasks")
@@ -88,5 +98,12 @@ public class TaskController {
         @Valid @RequestBody AssignRequest request
     ) {
         return ResponseEntity.ok(taskService.assignReporter(id, request));
+    }
+
+    @DeleteMapping("/api/tasks/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
+        taskService.deleteTask(id);
+        return ResponseEntity.noContent().build();
     }
 }

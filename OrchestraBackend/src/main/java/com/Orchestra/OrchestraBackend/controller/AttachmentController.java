@@ -69,11 +69,18 @@ public class AttachmentController {
     }
 
     @GetMapping("/api/attachments/{id}/download")
-    public ResponseEntity<Resource> download(@PathVariable Long id) throws MalformedURLException {
-        Path filePath = attachmentService.getFilePath(id);
+    public ResponseEntity<Resource> download(@PathVariable Long id, Authentication auth) throws MalformedURLException {
+        String username = auth != null ? auth.getName() : null;
+        Path filePath = attachmentService.getFilePath(id, username);
         Resource resource = new UrlResource(filePath.toUri());
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filePath.getFileName() + "\"")
             .body(resource);
+    }
+
+    @DeleteMapping("/api/attachments/{id}")
+    public ResponseEntity<Void> deleteAttachment(@PathVariable Long id, Authentication auth) {
+        attachmentService.deleteAttachment(id, auth.getName());
+        return ResponseEntity.noContent().build();
     }
 }

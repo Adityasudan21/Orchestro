@@ -36,4 +36,5 @@ export const attachmentsApi = {
       .then((r) => r.data)
   },
   downloadUrl: (id: number) => `/api/attachments/${id}/download`,
+  deleteAttachment: (id: number) => api.delete(`/attachments/${id}`).then(() => {}),
 }
