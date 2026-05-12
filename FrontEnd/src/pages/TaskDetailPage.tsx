@@ -9,6 +9,8 @@ import { activityApi } from '../api/activity.api'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { AssigneeSelect } from '../components/common/AssigneeSelect'
 import { StatusSelect } from '../components/common/StatusSelect'
+import { MentionTextarea } from '../components/common/MentionTextarea'
+import { CommentText } from '../components/common/CommentText'
 import { useAuth } from '../context/AuthContext'
 import { statusLabel, typeColors } from '../utils/statusColors'
 import { timeAgo } from '../utils/timeAgo'
@@ -138,7 +140,6 @@ export function TaskDetailPage() {
   const { data: assignableUsers } = useQuery({
     queryKey: ['users', 'assignable'],
     queryFn: usersApi.getAssignable,
-    enabled: canAssign,
   })
 
   const assignMutation = useMutation({
@@ -344,7 +345,7 @@ export function TaskDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-700 leading-relaxed mt-1 whitespace-pre-wrap">{c.content}</p>
+                  <CommentText content={c.content} />
                 )}
               </div>
             </div>
@@ -360,12 +361,13 @@ export function TaskDetailPage() {
             {initials(me?.username)}
           </div>
           <div className="flex-1 border border-gray-200 rounded-xl bg-white p-3 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition">
-            <textarea
+            <MentionTextarea
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={setComment}
               placeholder="Leave a comment, @mention or paste a link…"
               rows={2}
               className="w-full border-0 outline-none resize-none text-sm placeholder-gray-400 bg-transparent"
+              users={assignableUsers ?? []}
             />
             <div className="flex justify-end pt-2 border-t border-gray-100">
               <button
