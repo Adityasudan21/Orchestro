@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
@@ -15,14 +15,19 @@ const navItems = [
 
 const adminItems = [{ to: '/admin', label: 'Users' }]
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const { data: notifications } = useQuery({
     queryKey: ['notifications'],
@@ -41,14 +46,16 @@ export function Sidebar() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   })
 
-  function openDropdown() {
-    if (hideTimer.current) clearTimeout(hideTimer.current)
-    setDropdownOpen(true)
-  }
-
-  function scheduleClose() {
-    hideTimer.current = setTimeout(() => setDropdownOpen(false), 300)
-  }
+  useEffect(() => {
+    if (!dropdownOpen) return
+    function handleOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [dropdownOpen])
 
   function handleSignOut() {
     logout()
@@ -56,14 +63,31 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-56 bg-slate-900 text-gray-200 flex flex-col h-screen sticky top-0">
+    <aside
+      className={clsx(
+        'fixed top-0 left-0 h-full z-40 w-64 flex flex-col bg-slate-900 text-gray-200 transition-transform duration-300 ease-in-out',
+        'md:relative md:w-56 md:h-screen md:sticky md:top-0 md:translate-x-0',
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      )}
+    >
       <div className="px-5 py-5 border-b border-slate-700/70 flex items-center gap-2">
         <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <circle cx="16" cy="16" r="13" stroke="white" strokeWidth="2.5" />
           <circle cx="26" cy="16" r="2.5" fill="#7AA2FF" />
         </svg>
         <span className="text-lg font-bold tracking-tight text-white">Orchestro</span>
+        {/* Mobile close button */}
+        <button
+          onClick={onClose}
+          className="md:hidden ml-auto text-gray-400 hover:text-white p-1"
+          aria-label="Close menu"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
+
       {/* Notification bell */}
       <div className="px-3 pt-3 pb-1">
         <div className="relative">
@@ -115,11 +139,13 @@ export function Sidebar() {
           )}
         </div>
       </div>
+
       <nav className="flex-1 px-3 py-2 space-y-1">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={onClose}
             className={({ isActive }) =>
               clsx(
                 'block px-3 py-2 rounded-md text-sm font-medium transition-colors',
@@ -137,6 +163,7 @@ export function Sidebar() {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onClose}
               className={({ isActive }) =>
                 clsx(
                   'block px-3 py-2 rounded-md text-sm font-medium transition-colors',
@@ -150,13 +177,13 @@ export function Sidebar() {
             </NavLink>
           ))}
       </nav>
-      {/* User section — hover to reveal dropdown */}
-      <div
-        className="relative border-t border-slate-700/70"
-        onMouseEnter={openDropdown}
-        onMouseLeave={scheduleClose}
-      >
-        <div className="px-5 py-4 flex items-center gap-3 cursor-pointer select-none">
+
+      {/* User section — click to reveal dropdown */}
+      <div ref={dropdownRef} className="relative border-t border-slate-700/70">
+        <div
+          onClick={() => setDropdownOpen((v) => !v)}
+          className="px-5 py-4 flex items-center gap-3 cursor-pointer select-none"
+        >
           <div className="w-7 h-7 rounded-full bg-slate-600 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
             {user?.username?.[0]?.toUpperCase()}
           </div>
@@ -164,15 +191,19 @@ export function Sidebar() {
             <div className="font-medium text-gray-200 truncate">{user?.username}</div>
             <div className="truncate">{user?.role}</div>
           </div>
-          <svg className={`ml-auto w-3.5 h-3.5 transition-colors flex-shrink-0 ${dropdownOpen ? 'text-slate-300' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className={`ml-auto w-3.5 h-3.5 transition-transform flex-shrink-0 ${dropdownOpen ? 'rotate-180 text-slate-300' : 'text-slate-500'}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
           </svg>
         </div>
 
         {/* Dropdown */}
         <div
-          onMouseEnter={openDropdown}
-          onMouseLeave={scheduleClose}
           className={`absolute bottom-full left-2 right-2 mb-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden transition-all duration-150 origin-bottom z-50 ${
             dropdownOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
           }`}
