@@ -31,6 +31,16 @@ public class DataInitializer {
                 userRepository.save(admin);
                 log.info("Default admin created — username: admin / password: admin123");
             }
+            if (!userRepository.existsByUsername("guest")) {
+                User guest = User.builder()
+                    .username("guest")
+                    .email("guest@orchestro.com")
+                    .password(passwordEncoder.encode("guest123"))
+                    .role(Role.DEVELOPER)
+                    .build();
+                userRepository.save(guest);
+                log.info("Guest account created — username: guest / password: guest123");
+            }
         };
     }
 }

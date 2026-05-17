@@ -6,6 +6,7 @@ import type { User } from '../types'
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
+  isGuest: boolean
   login: (username: string, password: string, user: User) => void
   logout: () => void
   updateCredentials: (newPassword: string) => void
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, login, logout, updateCredentials }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: user !== null, isGuest: user?.username === 'guest', login, logout, updateCredentials }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { setCredentials } from '../api/axios'
+import { setCredentials, clearCredentials } from '../api/axios'
 import { authApi } from '../api/auth.api'
 import { useAuth } from '../context/AuthContext'
 
@@ -30,10 +30,26 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [guestLoading, setGuestLoading] = useState(false)
 
   if (isAuthenticated) {
     navigate('/dashboard', { replace: true })
     return null
+  }
+
+  async function handleGuestLogin() {
+    setError('')
+    setGuestLoading(true)
+    try {
+      setCredentials('guest', 'guest123')
+      const user = await authApi.login()
+      login('guest', 'guest123', user)
+      navigate('/projects', { replace: true })
+    } catch {
+      clearCredentials()
+      setError('Guest login unavailable. Contact your admin.')
+      setGuestLoading(false)
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -46,7 +62,8 @@ export function LoginPage() {
       login(username, password, user)
       navigate('/dashboard', { replace: true })
     } catch {
-      setError('Invalid username or password')
+      clearCredentials()
+      setError('Incorrect password')
       setLoading(false)
     }
   }
@@ -150,6 +167,20 @@ export function LoginPage() {
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+            <div className="relative flex justify-center"><span className="bg-white px-3 text-xs text-gray-400">or</span></div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGuestLogin}
+            disabled={guestLoading}
+            className="w-full border border-gray-300 hover:border-gray-400 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 font-semibold py-2.5 rounded-lg text-sm transition-colors"
+          >
+            {guestLoading ? 'Signing in…' : 'Continue as Guest'}
+          </button>
 
           <p className="mt-6 text-xs text-gray-400">
             Need an account? Ask your workspace admin to create one.

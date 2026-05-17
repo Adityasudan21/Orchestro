@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { projectsApi } from '../api/projects.api'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { timeAgo } from '../utils/timeAgo'
+import { useAuth } from '../context/AuthContext'
 import type { Project, User } from '../types'
 
 // ─── helpers ─────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ function avatarColor(username: string) {
 
 export function ProjectsPage() {
   const [search, setSearch] = useState('')
+  const { isGuest } = useAuth()
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
@@ -57,15 +59,17 @@ export function ProjectsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">My Projects</h1>
           <p className="text-sm text-gray-500 mt-0.5">Projects where you have an assigned story or task</p>
         </div>
-        <button
-          // TODO: wire up to your existing "create project" flow / modal
-          className="shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg shadow-sm transition-colors"
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          New Project
-        </button>
+        {!isGuest && (
+          <button
+            // TODO: wire up to your existing "create project" flow / modal
+            className="shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg shadow-sm transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            New Project
+          </button>
+        )}
       </div>
 
       {/* Toolbar */}

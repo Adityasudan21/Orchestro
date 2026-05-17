@@ -12,6 +12,7 @@ import { StatusSelect } from '../components/common/StatusSelect'
 import { MentionTextarea } from '../components/common/MentionTextarea'
 import { CommentText } from '../components/common/CommentText'
 import { useAuth } from '../context/AuthContext'
+import { TypeBadge } from '../components/common/TypeBadge'
 import { statusLabel, typeColors } from '../utils/statusColors'
 import { timeAgo } from '../utils/timeAgo'
 import type { TicketStatus, TaskType } from '../types'
@@ -85,7 +86,7 @@ export function TaskDetailPage() {
   const taskId = Number(id)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { user: me } = useAuth()
+  const { user: me, isGuest } = useAuth()
   const [comment, setComment] = useState('')
   const [editingMeta, setEditingMeta] = useState(false)
   const [editTitle, setEditTitle] = useState('')
@@ -268,13 +269,15 @@ export function TaskDetailPage() {
                 {task.description}
               </p>
             )}
-            <button
-              onClick={startEditing}
-              title="Edit title & description"
-              className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
+            {!isGuest && (
+              <button
+                onClick={startEditing}
+                title="Edit title & description"
+                className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            )}
           </div>
         )}
 
@@ -320,7 +323,7 @@ export function TaskDetailPage() {
                 <div className="flex items-baseline gap-2">
                   <span className="text-sm font-semibold text-gray-900">{c.user.username}</span>
                   <span className="text-[11px] text-gray-400">{timeAgo(c.createdAt)}</span>
-                  {(c.user.username === me?.username || me?.role === 'ADMIN') && (
+                  {!isGuest && (c.user.username === me?.username || me?.role === 'ADMIN') && (
                     <span className="ml-auto opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                       <button onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.content) }} className="text-[11px] text-gray-400 hover:text-blue-600 px-1">Edit</button>
                       <button onClick={() => deleteCommentMutation.mutate(c.id)} className="text-[11px] text-gray-400 hover:text-red-600 px-1">Delete</button>
@@ -356,30 +359,32 @@ export function TaskDetailPage() {
         </div>
 
         {/* New comment */}
-        <div className="flex gap-2.5 mt-5 items-start">
-          <div className="w-7 h-7 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-            {initials(me?.username)}
-          </div>
-          <div className="flex-1 border border-gray-200 rounded-xl bg-white p-3 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition">
-            <MentionTextarea
-              value={comment}
-              onChange={setComment}
-              placeholder="Leave a comment, @mention or paste a link…"
-              rows={2}
-              className="w-full border-0 outline-none resize-none text-sm placeholder-gray-400 bg-transparent"
-              users={assignableUsers ?? []}
-            />
-            <div className="flex justify-end pt-2 border-t border-gray-100">
-              <button
-                onClick={() => comment && commentMutation.mutate(comment)}
-                disabled={!comment || commentMutation.isPending}
-                className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-md transition-colors"
-              >
-                Comment
-              </button>
+        {!isGuest && (
+          <div className="flex gap-2.5 mt-5 items-start">
+            <div className="w-7 h-7 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+              {initials(me?.username)}
+            </div>
+            <div className="flex-1 border border-gray-200 rounded-xl bg-white p-3 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition">
+              <MentionTextarea
+                value={comment}
+                onChange={setComment}
+                placeholder="Leave a comment, @mention or paste a link…"
+                rows={2}
+                className="w-full border-0 outline-none resize-none text-sm placeholder-gray-400 bg-transparent"
+                users={assignableUsers ?? []}
+              />
+              <div className="flex justify-end pt-2 border-t border-gray-100">
+                <button
+                  onClick={() => comment && commentMutation.mutate(comment)}
+                  disabled={!comment || commentMutation.isPending}
+                  className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold px-4 py-1.5 rounded-md transition-colors"
+                >
+                  Comment
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </section>
 
       {/* RIGHT — properties dock */}
@@ -390,7 +395,7 @@ export function TaskDetailPage() {
           <StatusSelect
             value={task.status}
             onChange={(s) => statusMutation.mutate(s)}
-            disabled={statusMutation.isPending}
+            disabled={isGuest || statusMutation.isPending}
           />
         </Row>
 
@@ -421,11 +426,15 @@ export function TaskDetailPage() {
         </Row>
 
         <Row label="Type">
-          <TypeSelect
-            value={task.type}
-            onChange={(t) => typeMutation.mutate(t)}
-            disabled={typeMutation.isPending}
-          />
+          {isGuest ? (
+            <TypeBadge type={task.type} />
+          ) : (
+            <TypeSelect
+              value={task.type}
+              onChange={(t) => typeMutation.mutate(t)}
+              disabled={typeMutation.isPending}
+            />
+          )}
         </Row>
 
         <Row label="Story">
@@ -456,8 +465,8 @@ export function TaskDetailPage() {
           <div key={a.id} className="group flex items-center justify-between py-2 text-xs text-gray-700 border-b border-dashed border-gray-200 last:border-b-0">
             <span className="truncate">📎 {a.fileName}</span>
             <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-              <a href={attachmentsApi.downloadUrl(a.id)} download className="text-blue-600 hover:underline text-[11px]">Download</a>
-              {(a.uploadedBy.username === me?.username || me?.role === 'ADMIN') && (
+              {!isGuest && <a href={attachmentsApi.downloadUrl(a.id)} download className="text-blue-600 hover:underline text-[11px]">Download</a>}
+              {!isGuest && (a.uploadedBy.username === me?.username || me?.role === 'ADMIN') && (
                 <button onClick={() => { if (confirm('Delete this attachment?')) deleteAttachmentMutation.mutate(a.id) }} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-0.5 rounded">
                   <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M6 4V3h4v1M5 4l1 9h4l1-9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
@@ -468,17 +477,19 @@ export function TaskDetailPage() {
         {attachments?.length === 0 && (
           <p className="text-xs text-gray-400 italic">None yet.</p>
         )}
-        <label className="inline-block mt-3 cursor-pointer text-blue-600 hover:underline text-xs font-medium">
-          + Upload file
-          <input
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) uploadMutation.mutate(file)
-            }}
-          />
-        </label>
+        {!isGuest && (
+          <label className="inline-block mt-3 cursor-pointer text-blue-600 hover:underline text-xs font-medium">
+            + Upload file
+            <input
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) uploadMutation.mutate(file)
+              }}
+            />
+          </label>
+        )}
 
         {task.status === 'ASSIGNED_TO_AI' && (
           <p className="mt-6 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md p-2.5 leading-relaxed">
