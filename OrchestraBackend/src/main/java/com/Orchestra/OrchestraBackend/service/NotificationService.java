@@ -1,6 +1,7 @@
 package com.Orchestra.OrchestraBackend.service;
 
 import com.Orchestra.OrchestraBackend.dto.response.NotificationResponse;
+import com.Orchestra.OrchestraBackend.event.RealtimeEvent;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
 import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
 import com.Orchestra.OrchestraBackend.model.Notification;
@@ -21,6 +22,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final RealtimeEventProducer realtimeEventProducer;
 
     public void notify(User recipient, String message, String entityType, Long entityId) {
         notificationRepository.save(Notification.builder()
@@ -29,6 +31,8 @@ public class NotificationService {
             .entityType(entityType)
             .entityId(entityId)
             .build());
+        realtimeEventProducer.publish(
+            new RealtimeEvent("NOTIFICATION", recipient.getUsername(), entityType, entityId, null));
     }
 
     @Transactional(readOnly = true)

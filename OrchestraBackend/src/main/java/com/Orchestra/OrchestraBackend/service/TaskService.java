@@ -1,6 +1,7 @@
 package com.Orchestra.OrchestraBackend.service;
 
 import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
+import com.Orchestra.OrchestraBackend.event.RealtimeEvent;
 import com.Orchestra.OrchestraBackend.dto.request.CreateTaskRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateTypeRequest;
@@ -38,6 +39,7 @@ public class TaskService {
     private final AttachmentService attachmentService;
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
+    private final RealtimeEventProducer realtimeEventProducer;
 
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByStory(Long storyId) {
@@ -128,6 +130,8 @@ public class TaskService {
             notificationService.notify(task.getReporter(),
                 "Task \"" + task.getTitle() + "\" status changed to " + request.getStatus(), "TASK", id);
         }
+        realtimeEventProducer.publish(
+            new RealtimeEvent("STATUS_CHANGED", null, "TASK", id, task.getStory().getId()));
         if (request.getStatus() != TicketStatus.DONE) {
             revertStoryIfDone(task.getStory());
         }

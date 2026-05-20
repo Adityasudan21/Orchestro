@@ -9,6 +9,7 @@ OrchestraBackend/src/main/resources/application-local.properties
 FrontEnd/node_modules/
 FrontEnd/dist/
 FrontEnd/.vite/
+FrontEnd/tsconfig.*.tsbuildinfo
 
 # macOS
 .DS_Store

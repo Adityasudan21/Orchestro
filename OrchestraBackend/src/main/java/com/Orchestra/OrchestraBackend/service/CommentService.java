@@ -2,6 +2,7 @@ package com.Orchestra.OrchestraBackend.service;
 
 import com.Orchestra.OrchestraBackend.dto.request.CreateCommentRequest;
 import com.Orchestra.OrchestraBackend.dto.response.CommentResponse;
+import com.Orchestra.OrchestraBackend.event.RealtimeEvent;
 import com.Orchestra.OrchestraBackend.exception.ResourceNotFoundException;
 import com.Orchestra.OrchestraBackend.exception.UnauthorizedException;
 import com.Orchestra.OrchestraBackend.model.Comment;
@@ -35,6 +36,7 @@ public class CommentService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final RealtimeEventProducer realtimeEventProducer;
 
     private static final Pattern MENTION_PATTERN = Pattern.compile("@([\\w.]+)");
 
@@ -68,6 +70,7 @@ public class CommentService {
             notificationService.notify(task.getAssignee(),
                 user.getUsername() + " commented on your task: " + task.getTitle(), "TASK", taskId);
         }
+        realtimeEventProducer.publish(new RealtimeEvent("COMMENT_ADDED", null, "TASK", taskId, null));
         return result;
     }
 
@@ -88,7 +91,9 @@ public class CommentService {
             .user(user)
             .content(request.getContent())
             .build();
-        return CommentResponse.from(commentRepository.save(comment));
+        CommentResponse result = CommentResponse.from(commentRepository.save(comment));
+        realtimeEventProducer.publish(new RealtimeEvent("COMMENT_ADDED", null, "PROJECT", projectId, null));
+        return result;
     }
 
     public CommentResponse addStoryComment(Long storyId, CreateCommentRequest request, String username) {
@@ -107,6 +112,7 @@ public class CommentService {
             notificationService.notify(story.getAssignee(),
                 user.getUsername() + " commented on your story: " + story.getTitle(), "STORY", storyId);
         }
+        realtimeEventProducer.publish(new RealtimeEvent("COMMENT_ADDED", null, "STORY", storyId, null));
         return result;
     }
 

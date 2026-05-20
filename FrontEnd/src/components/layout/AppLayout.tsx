@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { Outlet, Navigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { useAuth } from '../../context/AuthContext'
+import { useRealtimeEvents } from '../../hooks/useRealtimeEvents'
 
 export function AppLayout() {
   const { isAuthenticated } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  useRealtimeEvents()
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />

@@ -1,6 +1,7 @@
 package com.Orchestra.OrchestraBackend.service;
 
 import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
+import com.Orchestra.OrchestraBackend.event.RealtimeEvent;
 import com.Orchestra.OrchestraBackend.dto.request.CreateStoryRequest;
 import com.Orchestra.OrchestraBackend.dto.request.UpdateStatusRequest;
 import com.Orchestra.OrchestraBackend.dto.response.PagedResponse;
@@ -41,6 +42,7 @@ public class StoryService {
     private final AttachmentService attachmentService;
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
+    private final RealtimeEventProducer realtimeEventProducer;
 
     @Transactional(readOnly = true)
     public List<StoryResponse> getStoriesByProject(Long projectId) {
@@ -129,6 +131,8 @@ public class StoryService {
             notificationService.notify(story.getReporter(),
                 "Story \"" + story.getTitle() + "\" status changed to " + request.getStatus(), "STORY", id);
         }
+        realtimeEventProducer.publish(
+            new RealtimeEvent("STATUS_CHANGED", null, "STORY", id, story.getProject().getId()));
         return result;
     }
 

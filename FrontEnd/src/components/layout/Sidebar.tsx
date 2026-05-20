@@ -32,7 +32,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { data: notifications } = useQuery({
     queryKey: ['notifications'],
     queryFn: notificationsApi.getMy,
-    refetchInterval: 30000,
   })
   const unreadCount = notifications?.filter((n) => !n.read).length ?? 0
 
