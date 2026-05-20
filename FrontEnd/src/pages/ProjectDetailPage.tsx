@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { MentionTextarea } from '../components/common/MentionTextarea'
 import { CommentText } from '../components/common/CommentText'
 import { useParams, Link } from 'react-router-dom'
@@ -56,6 +56,8 @@ export function ProjectDetailPage() {
   const [comment, setComment] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
+  const commentsScrollRef = useRef<HTMLDivElement>(null)
+  const prevCommentCountRef = useRef(-1)
   const [storySearch, setStorySearch] = useState('')
   const [storyStatusFilter, setStoryStatusFilter] = useState('')
   const [storyPage, setStoryPage] = useState(0)
@@ -93,6 +95,18 @@ export function ProjectDetailPage() {
       setComment('')
     },
   })
+
+  useEffect(() => {
+    if (!comments) return
+    const el = commentsScrollRef.current
+    if (!el) return
+    if (prevCommentCountRef.current === -1) {
+      el.scrollTop = el.scrollHeight
+    } else if (comments.length > prevCommentCountRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+    prevCommentCountRef.current = comments.length
+  }, [comments])
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => attachmentsApi.uploadToProject(projectId, file),
@@ -253,7 +267,7 @@ export function ProjectDetailPage() {
         </div>
 
         {/* Zone 2 — Rigid comment section: fixed height, internally scrollable */}
-        <div className="mx-8 flex-shrink-0 h-52 overflow-y-auto border border-gray-200 rounded-xl bg-white p-3">
+        <div ref={commentsScrollRef} className="mx-8 flex-shrink-0 h-52 overflow-y-auto border border-gray-200 rounded-xl bg-white p-3">
           <div className="space-y-3">
             {comments?.map((c) => (
               <div key={c.id} className="group flex gap-2.5 py-1.5">
@@ -311,7 +325,8 @@ export function ProjectDetailPage() {
                 <MentionTextarea
                   value={comment}
                   onChange={setComment}
-                  placeholder="Leave a comment, @mention or paste a link…"
+                  onSubmit={() => comment && commentMutation.mutate(comment)}
+                  placeholder="Leave a comment… (Enter to post, Shift+Enter for new line)"
                   rows={2}
                   className="w-full border-0 outline-none resize-none text-sm placeholder-gray-400 bg-transparent"
                   users={assignableUsers ?? []}

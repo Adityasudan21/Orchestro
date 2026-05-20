@@ -88,6 +88,8 @@ export function TaskDetailPage() {
   const navigate = useNavigate()
   const { user: me, isGuest } = useAuth()
   const [comment, setComment] = useState('')
+  const commentsScrollRef = useRef<HTMLDivElement>(null)
+  const prevCommentCountRef = useRef(-1)
   const [editingMeta, setEditingMeta] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editDesc, setEditDesc] = useState('')
@@ -132,6 +134,18 @@ export function TaskDetailPage() {
       setComment('')
     },
   })
+
+  useEffect(() => {
+    if (!comments) return
+    const el = commentsScrollRef.current
+    if (!el) return
+    if (prevCommentCountRef.current === -1) {
+      el.scrollTop = el.scrollHeight
+    } else if (comments.length > prevCommentCountRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+    prevCommentCountRef.current = comments.length
+  }, [comments])
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => attachmentsApi.uploadToTask(taskId, file),
@@ -313,7 +327,7 @@ export function TaskDetailPage() {
           </div>
         )}
 
-        <div className="space-y-3 mt-4 max-h-72 overflow-y-auto pr-1">
+        <div ref={commentsScrollRef} className="space-y-3 mt-4 max-h-72 overflow-y-auto pr-1">
           {comments?.map((c) => (
             <div key={c.id} className="group flex gap-2.5 py-2">
               <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
@@ -368,7 +382,8 @@ export function TaskDetailPage() {
               <MentionTextarea
                 value={comment}
                 onChange={setComment}
-                placeholder="Leave a comment, @mention or paste a link…"
+                onSubmit={() => comment && commentMutation.mutate(comment)}
+                placeholder="Leave a comment… (Enter to post, Shift+Enter for new line)"
                 rows={2}
                 className="w-full border-0 outline-none resize-none text-sm placeholder-gray-400 bg-transparent"
                 users={assignableUsers ?? []}

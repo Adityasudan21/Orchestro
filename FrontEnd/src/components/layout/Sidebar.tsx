@@ -7,6 +7,15 @@ import { notificationsApi } from '../../api/notifications.api'
 import { timeAgo } from '../../utils/timeAgo'
 import clsx from 'clsx'
 
+function notifLink(entityType: string | null, entityId: number | null): string | null {
+  if (!entityType || !entityId) return null
+  const t = entityType.toUpperCase()
+  if (t === 'TASK') return `/tasks/${entityId}`
+  if (t === 'STORY') return `/stories/${entityId}`
+  if (t === 'PROJECT') return `/projects/${entityId}`
+  return null
+}
+
 const navItems = [
   { to: '/dashboard', label: 'My Work' },
   { to: '/my-projects', label: 'My Projects' },
@@ -119,21 +128,30 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               {notifications?.length === 0 && (
                 <p className="text-xs text-gray-500 italic px-3 py-3">No notifications yet.</p>
               )}
-              {notifications?.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => { if (!n.read) markReadMutation.mutate(n.id) }}
-                  className={`px-3 py-2.5 border-b border-slate-700/50 last:border-0 cursor-pointer hover:bg-slate-700/40 transition-colors ${n.read ? 'opacity-60' : ''}`}
-                >
-                  <div className="flex items-start gap-2">
-                    {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />}
-                    <div className={!n.read ? '' : 'ml-3.5'}>
-                      <p className="text-xs text-gray-200 leading-snug">{n.message}</p>
-                      <p className="text-[10px] text-gray-500 mt-0.5">{timeAgo(n.createdAt)}</p>
+              {notifications?.map((n) => {
+                const link = notifLink(n.entityType, n.entityId)
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      if (!n.read) markReadMutation.mutate(n.id)
+                      if (link) { setNotifOpen(false); navigate(link) }
+                    }}
+                    className={`px-3 py-2.5 border-b border-slate-700/50 last:border-0 transition-colors ${n.read ? 'opacity-60' : ''} ${link ? 'cursor-pointer hover:bg-slate-700/40' : 'cursor-default'}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />}
+                      <div className={!n.read ? '' : 'ml-3.5'}>
+                        <p className="text-xs text-gray-200 leading-snug">{n.message}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className="text-[10px] text-gray-500">{timeAgo(n.createdAt)}</p>
+                          {link && <span className="text-[10px] text-blue-400">View →</span>}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

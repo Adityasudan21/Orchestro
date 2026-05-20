@@ -8,13 +8,14 @@ interface UserOption {
 interface Props {
   value: string
   onChange: (value: string) => void
+  onSubmit?: () => void
   placeholder?: string
   rows?: number
   className?: string
   users?: UserOption[]
 }
 
-export function MentionTextarea({ value, onChange, placeholder, rows = 2, className, users = [] }: Props) {
+export function MentionTextarea({ value, onChange, onSubmit, placeholder, rows = 2, className, users = [] }: Props) {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionStart, setMentionStart] = useState(0)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -51,18 +52,24 @@ export function MentionTextarea({ value, onChange, placeholder, rows = 2, classN
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (mentionQuery === null || filteredUsers.length === 0) return
-    if (e.key === 'ArrowDown') {
+    if (mentionQuery !== null && filteredUsers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setActiveIndex(i => (i + 1) % filteredUsers.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex(i => (i - 1 + filteredUsers.length) % filteredUsers.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        insertMention(filteredUsers[activeIndex].username)
+      } else if (e.key === 'Escape') {
+        setMentionQuery(null)
+      }
+      return
+    }
+    if (e.key === 'Enter' && !e.shiftKey && onSubmit) {
       e.preventDefault()
-      setActiveIndex(i => (i + 1) % filteredUsers.length)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActiveIndex(i => (i - 1 + filteredUsers.length) % filteredUsers.length)
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault()
-      insertMention(filteredUsers[activeIndex].username)
-    } else if (e.key === 'Escape') {
-      setMentionQuery(null)
+      onSubmit()
     }
   }
 
