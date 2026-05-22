@@ -16,7 +16,7 @@ export const statusLabel: Record<TicketStatus, string> = {
   IN_REVIEW: 'In Review',
   DONE: 'Done',
   BLOCKED: 'Blocked',
-  ASSIGNED_TO_AI: 'Assigned to AI',
+  ASSIGNED_TO_AI: 'Assign to AI',
   NEEDS_MORE_INFO: 'Needs Info',
 }
 

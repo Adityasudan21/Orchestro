@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { projectsApi } from '../api/projects.api'
+import { usersApi } from '../api/users.api'
+import { useAuth } from '../context/AuthContext'
+import { AssigneeSelect } from '../components/common/AssigneeSelect'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { timeAgo } from '../utils/timeAgo'
-import { useAuth } from '../context/AuthContext'
 import type { Project, User } from '../types'
 
 // ─── helpers ─────────────────────────────────────────────────────────────
@@ -40,10 +42,43 @@ function avatarColor(username: string) {
 
 export function ProjectsPage() {
   const [search, setSearch] = useState('')
-  const { isGuest } = useAuth()
+  const [showForm, setShowForm] = useState(false)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [assigneeId, setAssigneeId] = useState<number | null>(null)
+  const [reporterId, setReporterId] = useState<number | null>(null)
+
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER'
+
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.getAll,
+  })
+
+  const { data: assignableUsers } = useQuery({
+    queryKey: ['users', 'assignable'],
+    queryFn: usersApi.getAssignable,
+    enabled: canCreate && showForm,
+  })
+
+  const createMutation = useMutation({
+    mutationFn: () => projectsApi.create({
+      name,
+      description,
+      assigneeId: assigneeId ?? undefined,
+      reporterId: reporterId ?? undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['my-projects'] })
+      setShowForm(false)
+      setName('')
+      setDescription('')
+      setAssigneeId(null)
+      setReporterId(null)
+    },
   })
 
   const filtered = projects?.filter((p) =>
@@ -59,9 +94,9 @@ export function ProjectsPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">My Projects</h1>
           <p className="text-sm text-gray-500 mt-0.5">Projects where you have an assigned story or task</p>
         </div>
-        {!isGuest && (
+        {canCreate && (
           <button
-            // TODO: wire up to your existing "create project" flow / modal
+            onClick={() => setShowForm(!showForm)}
             className="shrink-0 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg shadow-sm transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -71,6 +106,63 @@ export function ProjectsPage() {
           </button>
         )}
       </div>
+
+      {/* Create form */}
+      {showForm && (
+        <div className="mb-6 bg-white border border-gray-200 rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Create Project</h2>
+          <input
+            autoFocus
+            placeholder="Project name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          />
+          {assignableUsers && (
+            <div className="flex gap-4 mb-3">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-gray-500 mb-1.5">Assignee</p>
+                <AssigneeSelect
+                  value={assigneeId}
+                  options={assignableUsers.map((u) => ({ id: u.id, username: u.username, role: u.role }))}
+                  onChange={(id) => setAssigneeId(id)}
+                />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-medium text-gray-500 mb-1.5">Reporter</p>
+                <AssigneeSelect
+                  value={reporterId}
+                  options={assignableUsers.map((u) => ({ id: u.id, username: u.username, role: u.role }))}
+                  onChange={(id) => setReporterId(id)}
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={() => createMutation.mutate()}
+              disabled={!name || createMutation.isPending}
+              className="bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {createMutation.isPending ? 'Creating…' : 'Create'}
+            </button>
+            <button
+              onClick={() => { setShowForm(false); setAssigneeId(null); setReporterId(null) }}
+              className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-5">
