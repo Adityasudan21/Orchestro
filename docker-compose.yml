@@ -34,6 +34,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qg==
+      KAFKA_HEAP_OPTS: "-Xmx384m -Xms256m"
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
