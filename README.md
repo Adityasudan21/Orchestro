@@ -2,6 +2,8 @@
 
 A JIRA-like project management and ticketing tool built with Spring Boot 4 and React. Supports a three-level hierarchy — **Project → Story → Task** — with role-based access control and a roadmap for AI-assisted ticket resolution via Kafka.
 
+**Live:** [orchestro.co.in](http://orchestro.co.in) — hosted on AWS EC2
+
 ---
 
 ## Tech Stack
@@ -10,7 +12,7 @@ A JIRA-like project management and ticketing tool built with Spring Boot 4 and R
 |---|---|
 | Backend | Spring Boot 4.0.6 · Java 21 · Spring Security 7 · Hibernate 7 |
 | Database | PostgreSQL 17 |
-| Frontend | React 18 · TypeScript · Vite · Tailwind CSS 3 |
+| Frontend | React 18 · TypeScript · Vite 8 · Tailwind CSS 3 |
 | State | TanStack Query v5 · React Router v6 · Axios |
 
 ---
@@ -23,10 +25,15 @@ A JIRA-like project management and ticketing tool built with Spring Boot 4 and R
 - **Task types** — `DEV`, `DOC`, `BUG`
 - **Ticket fields** — title, description, git link, branch, commit number, assignee, reporter, status, created date
 - **Status workflow** — `TODO → IN_PROGRESS → IN_REVIEW → DONE → BLOCKED`
-- **Comments** — threaded comments on Stories and Tasks
+- **Comments** — threaded comments on Stories and Tasks with `@mention` support
+- **@mention system** — type `@` in any comment to autocomplete and tag teammates; mentioned usernames are highlighted in rendered comments
 - **Attachments** — file upload/download on Stories and Tasks
-- **Dashboard** — "My Work" view showing all tasks assigned to the logged-in user
-- **Admin panel** — user creation and management (ADMIN only)
+- **Dashboard** — "My Work" view showing all tasks and stories assigned to the logged-in user
+- **Activity log** — per-entity audit trail tracking create/update/delete actions on Projects, Stories, and Tasks
+- **Notifications** — per-user in-app notifications on assignment, status changes, and comments; unread badge + mark-all-read
+- **Pagination** — all list endpoints return `PagedResponse<T>`; the UI has page controls throughout
+- **Rate limiting** — sliding-window limit of 10 login attempts per IP per 60 seconds (in-memory, no external dependency)
+- **Admin panel** — user creation, role management, and password changes (ADMIN only)
 - **AI stubs** — `ASSIGNED_TO_AI` and `NEEDS_MORE_INFO` statuses + Kafka hook point in `TaskService` ready for the AI extension
 
 ---
@@ -112,6 +119,24 @@ The app starts on **http://localhost:5173**. All `/api/*` requests are proxied t
 | `GET/POST` | `/api/tasks/:id/comments` | All |
 | `POST` | `/api/tasks/:id/attachments` | All |
 | `GET` | `/api/users` | ADMIN only |
+| `PATCH` | `/api/users/:id/role` | ADMIN only |
+| `POST` | `/api/users/:id/change-password` | ADMIN / self |
+| `GET/POST` | `/api/tasks/:id/comments` | All |
+| `GET/POST` | `/api/stories/:id/comments` | All |
+| `GET` | `/api/projects/:id/activity` | All |
+| `GET` | `/api/stories/:id/activity` | All |
+| `GET` | `/api/tasks/:id/activity` | All |
+| `GET` | `/api/notifications/my` | All |
+| `PATCH` | `/api/notifications/:id/read` | All |
+| `PATCH` | `/api/notifications/read-all` | All |
+
+---
+
+## Deployment
+
+The app is deployed on **AWS EC2** using Docker Compose. The full stack (backend, frontend via nginx, PostgreSQL, Kafka + Zookeeper) runs in containers defined in `docker-compose.yml`.
+
+Visit the live site: **[orchestro.co.in](http://orchestro.co.in)**
 
 ---
 
