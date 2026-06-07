@@ -1,0 +1,5 @@
+anthropic>=0.40.0
+confluent-kafka>=2.5.0
+gitpython>=3.1.43
+PyGitHub>=2.3.0
+requests>=2.32.3

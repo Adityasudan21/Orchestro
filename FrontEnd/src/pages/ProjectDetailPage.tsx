@@ -50,6 +50,9 @@ export function ProjectDetailPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [assigneeId, setAssigneeId] = useState<number | undefined>()
+  const [newStoryGitLink, setNewStoryGitLink] = useState('')
+  const [newStoryBranch, setNewStoryBranch] = useState('')
+  const [newStoryCommitNumber, setNewStoryCommitNumber] = useState('')
   const [editingMeta, setEditingMeta] = useState(false)
   const [editName, setEditName] = useState('')
   const [editDesc, setEditDesc] = useState('')
@@ -132,7 +135,7 @@ export function ProjectDetailPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (payload: { title: string; description: string; assigneeId?: number }) =>
+    mutationFn: (payload: { title: string; description: string; assigneeId?: number; gitLink?: string; branch?: string; commitNumber?: string }) =>
       storiesApi.create(projectId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories', projectId] })
@@ -140,6 +143,9 @@ export function ProjectDetailPage() {
       setTitle('')
       setDescription('')
       setAssigneeId(undefined)
+      setNewStoryGitLink('')
+      setNewStoryBranch('')
+      setNewStoryCommitNumber('')
     },
   })
 
@@ -399,6 +405,28 @@ export function ProjectDetailPage() {
                 rows={2}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none resize-none focus:ring-2 focus:ring-blue-500"
               />
+              <div className="grid grid-cols-1 gap-2 mb-3">
+                <input
+                  placeholder="Git repo URL (optional)"
+                  value={newStoryGitLink}
+                  onChange={(e) => setNewStoryGitLink(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex gap-2">
+                  <input
+                    placeholder="Branch (optional)"
+                    value={newStoryBranch}
+                    onChange={(e) => setNewStoryBranch(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    placeholder="Commit # (optional)"
+                    value={newStoryCommitNumber}
+                    onChange={(e) => setNewStoryCommitNumber(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
               {assignableUsers && (
                 <div className="mb-3 flex items-center gap-2">
                   <p className="text-xs font-medium text-gray-500">Assignee</p>
@@ -411,7 +439,7 @@ export function ProjectDetailPage() {
               )}
               <div className="flex gap-2">
                 <button
-                  onClick={() => createMutation.mutate({ title, description, assigneeId })}
+                  onClick={() => createMutation.mutate({ title, description, assigneeId, gitLink: newStoryGitLink || undefined, branch: newStoryBranch || undefined, commitNumber: newStoryCommitNumber || undefined })}
                   disabled={!title || createMutation.isPending}
                   className="bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >

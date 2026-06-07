@@ -77,6 +77,25 @@ services:
     ports:
       - "80:80"
 
+  ai-agent:
+    build:
+      context: ./ai-agent
+      dockerfile: Dockerfile
+    container_name: orchestro-ai-agent
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      ORCHESTRO_BASE_URL: http://backend:8080
+      ORCHESTRO_AGENT_USER: ${ORCHESTRO_AGENT_USER:-ai-agent}
+      ORCHESTRO_AGENT_PASS: ${ORCHESTRO_AGENT_PASS}
+
 volumes:
   postgres-data:
   kafka-data:

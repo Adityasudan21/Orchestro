@@ -60,6 +60,13 @@ export function StoryDetailPage() {
   const [type, setType] = useState<TaskType>('DEV')
   const [description, setDescription] = useState('')
   const [newTaskAssigneeId, setNewTaskAssigneeId] = useState<number | undefined>()
+  const [newTaskGitLink, setNewTaskGitLink] = useState('')
+  const [newTaskBranch, setNewTaskBranch] = useState('')
+  const [newTaskCommitNumber, setNewTaskCommitNumber] = useState('')
+  const [editingGit, setEditingGit] = useState(false)
+  const [editGitLink, setEditGitLink] = useState('')
+  const [editBranch, setEditBranch] = useState('')
+  const [editCommitNumber, setEditCommitNumber] = useState('')
   const [editingMeta, setEditingMeta] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null)
@@ -156,7 +163,7 @@ export function StoryDetailPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (payload: { title: string; type: TaskType; description: string; assigneeId?: number }) =>
+    mutationFn: (payload: { title: string; type: TaskType; description: string; assigneeId?: number; gitLink?: string; branch?: string; commitNumber?: string }) =>
       tasksApi.create(storyId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', storyId] })
@@ -165,6 +172,22 @@ export function StoryDetailPage() {
       setTitle('')
       setDescription('')
       setNewTaskAssigneeId(undefined)
+      setNewTaskGitLink('')
+      setNewTaskBranch('')
+      setNewTaskCommitNumber('')
+    },
+  })
+
+  const updateGitMutation = useMutation({
+    mutationFn: () => storiesApi.update(storyId, {
+      title: story!.title,
+      gitLink: editGitLink || undefined,
+      branch: editBranch || undefined,
+      commitNumber: editCommitNumber || undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['story', storyId] })
+      setEditingGit(false)
     },
   })
 
@@ -469,6 +492,28 @@ export function StoryDetailPage() {
                 rows={2}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none resize-none focus:ring-2 focus:ring-blue-500"
               />
+              <div className="grid grid-cols-1 gap-2 mb-3">
+                <input
+                  placeholder="Git repo URL (optional)"
+                  value={newTaskGitLink}
+                  onChange={(e) => setNewTaskGitLink(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex gap-2">
+                  <input
+                    placeholder="Branch (optional)"
+                    value={newTaskBranch}
+                    onChange={(e) => setNewTaskBranch(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    placeholder="Commit # (optional)"
+                    value={newTaskCommitNumber}
+                    onChange={(e) => setNewTaskCommitNumber(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
               {canAssign && assignableUsers && (
                 <div className="mb-3 flex items-center gap-2">
                   <p className="text-xs font-medium text-gray-500">Assignee</p>
@@ -481,7 +526,7 @@ export function StoryDetailPage() {
               )}
               <div className="flex gap-2">
                 <button
-                  onClick={() => createMutation.mutate({ title, type, description, assigneeId: newTaskAssigneeId })}
+                  onClick={() => createMutation.mutate({ title, type, description, assigneeId: newTaskAssigneeId, gitLink: newTaskGitLink || undefined, branch: newTaskBranch || undefined, commitNumber: newTaskCommitNumber || undefined })}
                   disabled={!title || createMutation.isPending}
                   className="bg-blue-600 text-white text-sm font-medium px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
@@ -580,20 +625,58 @@ export function StoryDetailPage() {
           </Link>
         </Row>
 
-        {(story.branch || story.commitNumber || story.gitLink) && (
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mt-6 mb-2.5 flex items-center justify-between">
+          Git
+          {!isGuest && !editingGit && (
+            <button
+              onClick={() => { setEditGitLink(story.gitLink ?? ''); setEditBranch(story.branch ?? ''); setEditCommitNumber(story.commitNumber ?? ''); setEditingGit(true) }}
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="Edit git fields"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          )}
+        </h2>
+        {editingGit ? (
+          <div className="space-y-2 mb-3">
+            <input
+              placeholder="Git repo URL"
+              value={editGitLink}
+              onChange={(e) => setEditGitLink(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="Branch"
+              value={editBranch}
+              onChange={(e) => setEditBranch(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="Commit #"
+              value={editCommitNumber}
+              onChange={(e) => setEditCommitNumber(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => updateGitMutation.mutate()}
+                disabled={updateGitMutation.isPending}
+                className="bg-slate-900 text-white text-[11px] font-semibold px-3 py-1.5 rounded-md hover:bg-slate-800 disabled:opacity-50"
+              >
+                {updateGitMutation.isPending ? 'Saving…' : 'Update'}
+              </button>
+              <button onClick={() => setEditingGit(false)} className="text-[11px] text-gray-500 px-2 hover:text-gray-700">Cancel</button>
+            </div>
+          </div>
+        ) : (
           <>
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mt-6 mb-2.5">Git</h2>
-            {story.branch && (
-              <Row label="Branch"><span className="font-mono text-xs text-gray-700">{story.branch}</span></Row>
-            )}
-            {story.commitNumber && (
-              <Row label="Commit"><span className="font-mono text-xs text-gray-700">{story.commitNumber}</span></Row>
-            )}
-            {story.gitLink && (
-              <Row label="Link">
-                <a href={story.gitLink} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs font-medium">Open ↗</a>
-              </Row>
-            )}
+            <Row label="Branch"><span className="font-mono text-xs text-gray-700">{story.branch || '—'}</span></Row>
+            <Row label="Commit"><span className="font-mono text-xs text-gray-700">{story.commitNumber || '—'}</span></Row>
+            <Row label="Link">
+              {story.gitLink
+                ? <a href={story.gitLink} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs font-medium">Open ↗</a>
+                : <span className="text-xs text-gray-400">—</span>}
+            </Row>
           </>
         )}
 

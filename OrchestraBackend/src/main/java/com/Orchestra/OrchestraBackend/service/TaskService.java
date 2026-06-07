@@ -1,5 +1,6 @@
 package com.Orchestra.OrchestraBackend.service;
 
+import com.Orchestra.OrchestraBackend.dto.event.AITicketMessage;
 import com.Orchestra.OrchestraBackend.dto.request.AssignRequest;
 import com.Orchestra.OrchestraBackend.event.RealtimeEvent;
 import com.Orchestra.OrchestraBackend.dto.request.CreateTaskRequest;
@@ -40,6 +41,7 @@ public class TaskService {
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
     private final RealtimeEventProducer realtimeEventProducer;
+    private final AITicketProducer aiTicketProducer;
 
     @Transactional(readOnly = true)
     public List<TaskResponse> getTasksByStory(Long storyId) {
@@ -121,7 +123,12 @@ public class TaskService {
             .orElseThrow(() -> new ResourceNotFoundException("Task not found: " + id));
         TicketStatus oldStatus = task.getStatus();
         task.setStatus(request.getStatus());
-        // TODO: when status == ASSIGNED_TO_AI, publish to Kafka topic 'ai-ticket-queue'
+        if (request.getStatus() == TicketStatus.ASSIGNED_TO_AI) {
+            aiTicketProducer.publish(new AITicketMessage(
+                task.getId(), task.getTitle(), task.getDescription(),
+                task.getGitLink(), task.getBranch()
+            ));
+        }
         TaskResponse result = TaskResponse.from(taskRepository.save(task));
         activityLogService.log("TASK", id, task.getAssignee() != null ? task.getAssignee() : task.getReporter(),
             "STATUS_CHANGED", oldStatus + " → " + request.getStatus());

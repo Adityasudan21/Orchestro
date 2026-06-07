@@ -95,6 +95,10 @@ export function TaskDetailPage() {
   const [editDesc, setEditDesc] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
+  const [editingGit, setEditingGit] = useState(false)
+  const [editGitLink, setEditGitLink] = useState('')
+  const [editBranch, setEditBranch] = useState('')
+  const [editCommitNumber, setEditCommitNumber] = useState('')
   const canAssign = me?.role === 'ADMIN' || me?.role === 'MANAGER'
 
   const { data: task, isLoading } = useQuery({
@@ -180,6 +184,20 @@ export function TaskDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task', taskId] })
       setEditingMeta(false)
+    },
+  })
+
+  const updateGitMutation = useMutation({
+    mutationFn: () => tasksApi.update(taskId, {
+      title: task!.title,
+      type: task!.type,
+      gitLink: editGitLink || undefined,
+      branch: editBranch || undefined,
+      commitNumber: editCommitNumber || undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', taskId] })
+      setEditingGit(false)
     },
   })
 
@@ -458,20 +476,58 @@ export function TaskDetailPage() {
           </Link>
         </Row>
 
-        {(task.branch || task.commitNumber || task.gitLink) && (
+        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mt-6 mb-2.5 flex items-center justify-between">
+          Git
+          {!isGuest && !editingGit && (
+            <button
+              onClick={() => { setEditGitLink(task.gitLink ?? ''); setEditBranch(task.branch ?? ''); setEditCommitNumber(task.commitNumber ?? ''); setEditingGit(true) }}
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              title="Edit git fields"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          )}
+        </h2>
+        {editingGit ? (
+          <div className="space-y-2 mb-3">
+            <input
+              placeholder="Git repo URL"
+              value={editGitLink}
+              onChange={(e) => setEditGitLink(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="Branch"
+              value={editBranch}
+              onChange={(e) => setEditBranch(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              placeholder="Commit #"
+              value={editCommitNumber}
+              onChange={(e) => setEditCommitNumber(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => updateGitMutation.mutate()}
+                disabled={updateGitMutation.isPending}
+                className="bg-slate-900 text-white text-[11px] font-semibold px-3 py-1.5 rounded-md hover:bg-slate-800 disabled:opacity-50"
+              >
+                {updateGitMutation.isPending ? 'Saving…' : 'Update'}
+              </button>
+              <button onClick={() => setEditingGit(false)} className="text-[11px] text-gray-500 px-2 hover:text-gray-700">Cancel</button>
+            </div>
+          </div>
+        ) : (
           <>
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mt-6 mb-2.5">Git</h2>
-            {task.branch && (
-              <Row label="Branch"><span className="font-mono text-xs text-gray-700">{task.branch}</span></Row>
-            )}
-            {task.commitNumber && (
-              <Row label="Commit"><span className="font-mono text-xs text-gray-700">{task.commitNumber}</span></Row>
-            )}
-            {task.gitLink && (
-              <Row label="Link">
-                <a href={task.gitLink} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs font-medium">Open ↗</a>
-              </Row>
-            )}
+            <Row label="Branch"><span className="font-mono text-xs text-gray-700">{task.branch || '—'}</span></Row>
+            <Row label="Commit"><span className="font-mono text-xs text-gray-700">{task.commitNumber || '—'}</span></Row>
+            <Row label="Link">
+              {task.gitLink
+                ? <a href={task.gitLink} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs font-medium">Open ↗</a>
+                : <span className="text-xs text-gray-400">—</span>}
+            </Row>
           </>
         )}
 
