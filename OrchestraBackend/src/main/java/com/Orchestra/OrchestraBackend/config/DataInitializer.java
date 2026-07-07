@@ -41,17 +41,28 @@ public class DataInitializer {
                 userRepository.save(guest);
                 log.info("Guest account created — username: guest / password: guest123");
             }
-            if (!userRepository.existsByUsername("ai-agent")) {
-                User aiAgent = User.builder()
-                    .username("ai-agent")
-                    .email("ai-agent@orchestro.internal")
-                    .password(passwordEncoder.encode(
-                        System.getenv().getOrDefault("ORCHESTRO_AGENT_PASS", "changeme")))
-                    .role(Role.DEVELOPER)
-                    .build();
-                userRepository.save(aiAgent);
-                log.info("AI agent service account created — username: ai-agent");
-            }
+            String agentPass = System.getenv().getOrDefault("ORCHESTRO_AGENT_PASS", "changeme");
+            userRepository.findByUsername("ai-agent").ifPresentOrElse(
+                aiAgent -> {
+                    // Service account: keep the password in sync with the env var
+                    // so .env changes don't silently break the agent's callbacks.
+                    if (!passwordEncoder.matches(agentPass, aiAgent.getPassword())) {
+                        aiAgent.setPassword(passwordEncoder.encode(agentPass));
+                        userRepository.save(aiAgent);
+                        log.info("AI agent service account password resynced from ORCHESTRO_AGENT_PASS");
+                    }
+                },
+                () -> {
+                    User aiAgent = User.builder()
+                        .username("ai-agent")
+                        .email("ai-agent@orchestro.internal")
+                        .password(passwordEncoder.encode(agentPass))
+                        .role(Role.DEVELOPER)
+                        .build();
+                    userRepository.save(aiAgent);
+                    log.info("AI agent service account created — username: ai-agent");
+                }
+            );
         };
     }
 }

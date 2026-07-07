@@ -562,12 +562,6 @@ export function TaskDetailPage() {
           </label>
         )}
 
-        {task.status === 'ASSIGNED_TO_AI' && (
-          <p className="mt-6 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md p-2.5 leading-relaxed">
-            AI integration coming soon — this task will be processed by the AI agent.
-          </p>
-        )}
-
         {canAssign && (
           <div className="mt-8 pt-5 border-t border-gray-200">
             <button

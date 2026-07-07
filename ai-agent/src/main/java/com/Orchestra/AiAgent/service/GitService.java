@@ -2,9 +2,7 @@ package com.Orchestra.AiAgent.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.api.errors.RefAlreadyExistsException;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.transport.RefSpec;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
@@ -31,41 +29,36 @@ public class GitService {
         this.author = new PersonIdent(authorName, authorEmail);
     }
 
-    /** Clone repo, checkout baseBranch, create aiBranch. Returns local path. */
-    public Path cloneAndCheckout(String gitLink, String baseBranch, String aiBranch) throws GitAPIException, IOException {
+    /**
+     * Clone repo and check out workBranch: if it already exists on the remote the
+     * agent continues on top of it, otherwise it is created from defaultBranch HEAD.
+     * Returns local path.
+     */
+    public Path cloneAndCheckout(String gitLink, String defaultBranch, String workBranch) throws GitAPIException, IOException {
         Path workDir = Files.createTempDirectory("orchestro-ai-");
         try (Git git = Git.cloneRepository()
                 .setURI(gitLink)
                 .setDirectory(workDir.toFile())
                 .setCredentialsProvider(credentials)
                 .call()) {
-            checkoutBase(git, baseBranch);
-            try {
-                git.checkout().setCreateBranch(true).setName(aiBranch).call();
-            } catch (RefAlreadyExistsException e) {
-                // Branch already exists locally (retry after crash) — reset to base HEAD.
-                git.checkout().setName(aiBranch).call();
-                git.reset().setMode(ResetCommand.ResetType.HARD).setRef("origin/" + baseBranch).call();
+            boolean existsOnRemote = git.getRepository()
+                .findRef("refs/remotes/origin/" + workBranch) != null;
+            if (existsOnRemote) {
+                git.checkout()
+                    .setCreateBranch(true)
+                    .setName(workBranch)
+                    .setStartPoint("origin/" + workBranch)
+                    .call();
+            } else {
+                git.checkout().setName(defaultBranch).call();
+                git.checkout().setCreateBranch(true).setName(workBranch).call();
             }
         }
         return workDir;
     }
 
-    private void checkoutBase(Git git, String baseBranch) throws GitAPIException {
-        try {
-            git.checkout().setName(baseBranch).call();
-        } catch (GitAPIException e) {
-            // Not the default branch — create a local branch tracking the remote one.
-            git.checkout()
-                .setCreateBranch(true)
-                .setName(baseBranch)
-                .setStartPoint("origin/" + baseBranch)
-                .call();
-        }
-    }
-
     /** Stage all changes, commit, push. Returns false if nothing changed. */
-    public boolean commitAndPush(Path repoPath, Long taskId, String aiBranch) throws GitAPIException, IOException {
+    public boolean commitAndPush(Path repoPath, Long taskId, String workBranch) throws GitAPIException, IOException {
         try (Git git = Git.open(repoPath.toFile())) {
             git.add().addFilepattern(".").call();
             git.add().setUpdate(true).addFilepattern(".").call(); // stage deletions too
@@ -81,10 +74,10 @@ public class GitService {
                 .call();
             git.push()
                 .setRemote("origin")
-                .setRefSpecs(new RefSpec(aiBranch + ":" + aiBranch))
+                .setRefSpecs(new RefSpec(workBranch + ":" + workBranch))
                 .setCredentialsProvider(credentials)
                 .call();
-            log.info("Pushed branch {} for task {}", aiBranch, taskId);
+            log.info("Pushed branch {} for task {}", workBranch, taskId);
             return true;
         }
     }
