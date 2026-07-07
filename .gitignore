@@ -5,6 +5,11 @@ OrchestraBackend/*.log
 OrchestraBackend/uploads/
 OrchestraBackend/src/main/resources/application-local.properties
 
+# AI Agent — Maven / Spring Boot
+ai-agent/target/
+ai-agent/.mvn/wrapper/maven-wrapper.jar
+ai-agent/*.log
+
 # Frontend — Node / Vite
 FrontEnd/node_modules/
 FrontEnd/dist/

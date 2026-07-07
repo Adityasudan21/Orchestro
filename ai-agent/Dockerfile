@@ -1,10 +1,14 @@
-FROM python:3.12-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
-
+# Stage 1: build
+FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pom.xml .
+RUN mvn dependency:go-offline -q
+COPY src ./src
+RUN mvn package -DskipTests -q
 
-COPY . .
-CMD ["python", "main.py"]
+# Stage 2: runtime
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+ENV JAVA_TOOL_OPTIONS="-Xmx256m"
+ENTRYPOINT ["java", "-jar", "app.jar"]

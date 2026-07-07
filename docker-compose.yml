@@ -90,11 +90,13 @@ services:
         condition: service_started
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
       ORCHESTRO_BASE_URL: http://backend:8080
       ORCHESTRO_AGENT_USER: ${ORCHESTRO_AGENT_USER:-ai-agent}
       ORCHESTRO_AGENT_PASS: ${ORCHESTRO_AGENT_PASS}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-orchestro-ai-agent}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-ai-agent@orchestro.local}
 
 volumes:
   postgres-data:
